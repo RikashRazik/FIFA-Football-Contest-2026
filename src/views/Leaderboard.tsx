@@ -221,6 +221,21 @@ export function Leaderboard({ participants, updateScore }: LeaderboardProps) {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={(e) => {
+              const url = new URL(window.location.href);
+              url.searchParams.set('view', 'leaderboard');
+              navigator.clipboard.writeText(url.toString());
+              const target = e.currentTarget;
+              const originalText = target.innerHTML;
+              target.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M20 6 9 17l-5-5"/></svg> Copied';
+              setTimeout(() => target.innerHTML = originalText, 2000);
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Share Link
+          </button>
+          <button
             onClick={() => setIsExportModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200"
           >
