@@ -1,0 +1,6 @@
+{
+  "name": "FIFA 2026 Admin",
+  "description": "Contest Leaderboard and Dashboard Admin Panel",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
