@@ -1,16 +1,37 @@
 import { useState, useEffect } from 'react';
-import { Participant, Question } from '../types';
+import { Participant, Question, Answer } from '../types';
 import { INITIAL_PARTICIPANTS, INITIAL_QUESTIONS } from '../data';
 
 export function useAppStore() {
   const [participants, setParticipants] = useState<Participant[]>(() => {
     const saved = localStorage.getItem('fifa_participants_v3');
-    return saved ? JSON.parse(saved) : INITIAL_PARTICIPANTS;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_PARTICIPANTS;
+    
+    // Ensure all participants have a unique 4-digit ID
+    let updated = false;
+    const mapped = parsed.map((p: Participant) => {
+      if (!p.uniqueId) {
+        updated = true;
+        return { ...p, uniqueId: Math.floor(1000 + Math.random() * 9000).toString() };
+      }
+      return p;
+    });
+    
+    if (updated) {
+      localStorage.setItem('fifa_participants_v3', JSON.stringify(mapped));
+    }
+    
+    return mapped;
   });
 
   const [questions, setQuestions] = useState<Question[]>(() => {
     const saved = localStorage.getItem('fifa_questions_v3');
     return saved ? JSON.parse(saved) : INITIAL_QUESTIONS;
+  });
+
+  const [answers, setAnswers] = useState<Answer[]>(() => {
+    const saved = localStorage.getItem('fifa_answers_v1');
+    return saved ? JSON.parse(saved) : [];
   });
 
   useEffect(() => {
@@ -20,6 +41,10 @@ export function useAppStore() {
   useEffect(() => {
     localStorage.setItem('fifa_questions_v3', JSON.stringify(questions));
   }, [questions]);
+
+  useEffect(() => {
+    localStorage.setItem('fifa_answers_v1', JSON.stringify(answers));
+  }, [answers]);
 
   const updateParticipantScore = (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number) => {
     setParticipants(prev => prev.map(p => {
@@ -34,6 +59,7 @@ export function useAppStore() {
     const newParticipant: Participant = {
       id: Date.now().toString(),
       name,
+      uniqueId: Math.floor(1000 + Math.random() * 9000).toString(),
       dailyPoints: 0,
       bonusPoints: 0,
       bumperPoints: 0,
@@ -90,9 +116,21 @@ export function useAppStore() {
     setQuestions(prev => prev.filter(q => q.id !== id));
   };
 
+  const addAnswer = (questionId: string, participantId: string, answer: string) => {
+    const newAnswer: Answer = {
+      id: Date.now().toString(),
+      questionId,
+      participantId,
+      answer,
+      timestamp: new Date().toISOString()
+    };
+    setAnswers(prev => [...prev, newAnswer]);
+  };
+
   return {
     participants,
     questions,
+    answers,
     updateParticipantScore,
     addParticipant,
     updateParticipantName,
@@ -101,6 +139,7 @@ export function useAppStore() {
     deleteParticipant,
     addQuestion,
     updateQuestion,
-    deleteQuestion
+    deleteQuestion,
+    addAnswer
   };
 }

@@ -14,8 +14,17 @@ export interface Question {
 export interface Participant {
   id: string;
   name: string;
+  uniqueId?: string;
   dailyPoints: number;
   bonusPoints: number;
   bumperPoints: number;
   dailyScores?: number[];
+}
+
+export interface Answer {
+  id: string;
+  questionId: string;
+  participantId: string;
+  answer: string;
+  timestamp: string;
 }

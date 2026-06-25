@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Participant } from '../types';
-import { Trophy, Medal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 
 interface PublicLeaderboardViewProps {
   participants: Participant[];
 }
 
 export const PublicLeaderboardView: React.FC<PublicLeaderboardViewProps> = ({ participants }) => {
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const maxDays = participants.reduce((max, p) => Math.max(max, p.dailyScores?.length || 0), 0);
 
@@ -33,13 +32,6 @@ export const PublicLeaderboardView: React.FC<PublicLeaderboardViewProps> = ({ pa
     }
     return { ...p, rank: currentRank };
   });
-
-  const toggleRow = (id: string) => {
-    setExpandedRows(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 p-4 md:p-12 font-sans">
@@ -69,19 +61,16 @@ export const PublicLeaderboardView: React.FC<PublicLeaderboardViewProps> = ({ pa
                   <th className="py-5 px-4 font-semibold text-center text-amber-500/80">Bonus</th>
                   <th className="py-5 px-4 font-semibold text-center text-purple-500/80">Bumper</th>
                   <th className="py-5 px-6 font-bold text-white text-right">Total</th>
-                  <th className="py-5 px-4 w-12"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
                 {ranked.map((p) => {
                   const isTop3 = p.rank <= 3;
-                  const isExpanded = expandedRows[p.id];
                   
                   return (
                     <React.Fragment key={p.id}>
                       <tr 
-                        className={`group transition-colors cursor-pointer ${p.rank === 1 ? 'bg-amber-900/20 hover:bg-amber-900/40' : 'bg-slate-900 hover:bg-slate-800'}`}
-                        onClick={() => toggleRow(p.id)}
+                        className={`group transition-colors ${p.rank === 1 ? 'bg-amber-900/20 hover:bg-amber-900/40' : 'bg-slate-900 hover:bg-slate-800'}`}
                       >
                         <td className={`py-4 px-4 w-[80px] min-w-[80px] sticky left-0 z-10 transition-colors ${p.rank === 1 ? 'bg-[#292015] group-hover:bg-[#382613]' : 'bg-slate-900 group-hover:bg-slate-800'}`}>
                           <div className={`mx-auto flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm shadow-sm ${
@@ -121,41 +110,7 @@ export const PublicLeaderboardView: React.FC<PublicLeaderboardViewProps> = ({ pa
                             {p.totalPoints}
                           </span>
                         </td>
-                        <td className="py-4 px-4 text-right text-slate-500">
-                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                        </td>
                       </tr>
-                      {isExpanded && (
-                        <tr className="bg-slate-900/80 border-b border-slate-800">
-                          <td colSpan={maxDays + 5} className="py-6 px-6">
-                            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800">
-                              <div className="flex items-center gap-4 w-full md:w-auto">
-                                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
-                                  <Medal className={`w-6 h-6 ${isTop3 ? 'text-amber-400' : 'text-slate-500'}`} />
-                                </div>
-                                <div className="truncate">
-                                  <h4 className="text-white font-bold truncate">{p.name}</h4>
-                                  <p className="text-slate-500 text-sm">Rank #{p.rank} • {p.totalPoints} Total Points</p>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full md:w-auto">
-                                <div className="flex flex-col items-center p-2 sm:p-3 rounded-lg bg-slate-900 border border-slate-800">
-                                  <span className="text-[10px] sm:text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Daily</span>
-                                  <span className="font-mono font-bold text-indigo-400 text-base sm:text-lg">{p.dailyPoints}</span>
-                                </div>
-                                <div className="flex flex-col items-center p-2 sm:p-3 rounded-lg bg-slate-900 border border-slate-800">
-                                  <span className="text-[10px] sm:text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Bonus</span>
-                                  <span className="font-mono font-bold text-amber-500 text-base sm:text-lg">{p.bonusPoints}</span>
-                                </div>
-                                <div className="flex flex-col items-center p-2 sm:p-3 rounded-lg bg-slate-900 border border-slate-800">
-                                  <span className="text-[10px] sm:text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Bumper</span>
-                                  <span className="font-mono font-bold text-purple-500 text-base sm:text-lg">{p.bumperPoints}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
                     </React.Fragment>
                   );
                 })}

@@ -51,10 +51,17 @@ const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, 
 interface PublicQuestionsViewProps {
   date: string;
   questions: Question[];
+  participants: import('../types').Participant[];
+  addAnswer: (questionId: string, participantId: string, answer: string) => void;
 }
 
-export function PublicQuestionsView({ date, questions }: PublicQuestionsViewProps) {
+export function PublicQuestionsView({ date, questions, participants, addAnswer }: PublicQuestionsViewProps) {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, number>>({});
+  const [uniqueId, setUniqueId] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loggedInParticipant, setLoggedInParticipant] = useState<import('../types').Participant | null>(null);
 
   const getDayNumber = (dateString: string) => {
     const start = new Date('2026-06-11T00:00:00Z');
@@ -70,6 +77,23 @@ export function PublicQuestionsView({ date, questions }: PublicQuestionsViewProp
     }));
   };
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (uniqueId.length !== 4) {
+      setError('Please enter a valid 4-digit ID.');
+      return;
+    }
+    const participant = participants.find(p => p.uniqueId === uniqueId);
+    if (!participant) {
+      setError('Invalid Unique ID. Please check and try again.');
+      return;
+    }
+    setLoggedInParticipant(participant);
+    setIsAuthenticated(true);
+    setError('');
+  };
+
   if (questions.length === 0) {
     return (
       <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans">
@@ -80,6 +104,61 @@ export function PublicQuestionsView({ date, questions }: PublicQuestionsViewProp
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans selection:bg-blue-500/30">
+        <div className="max-w-md w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="text-center space-y-4 mb-8">
+            <h1 className="text-3xl md:text-4xl font-black text-white tracking-widest uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300">
+              World Cup 2026 Contest
+            </h1>
+            <div className="inline-block bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 border border-blue-500 rounded-full px-6 py-1.5 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+              <span className="text-lg font-bold text-yellow-400 tracking-wider">
+                DAY {getDayNumber(date)}
+              </span>
+            </div>
+          </div>
+          
+          <div className="bg-[#0f172a] p-8 rounded-2xl border border-blue-900/50 shadow-xl">
+            <h2 className="text-xl font-bold text-white mb-2 text-center">Participant Login</h2>
+            <p className="text-slate-400 text-sm text-center mb-6">Enter your 4-digit unique ID to answer today's questions.</p>
+            
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter 4-digit ID"
+                  value={uniqueId}
+                  onChange={(e) => setUniqueId(e.target.value)}
+                  maxLength={4}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono text-center text-xl tracking-[0.5em]"
+                />
+              </div>
+              {error && <p className="text-red-400 text-sm font-medium bg-red-900/20 p-3 rounded-lg border border-red-900/50 text-center">{error}</p>}
+              <button 
+                type="submit"
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all"
+              >
+                Access Questions
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Find the earliest active end time to display at the top
+  const activeQuestionsWithTime = questions.filter(q => q.status === 'active' && q.endTime);
+  let globalEndTime = null;
+  if (activeQuestionsWithTime.length > 0) {
+    globalEndTime = activeQuestionsWithTime.sort((a, b) => {
+      const timeA = new Date(`${a.date}T${a.endTime!.length === 5 ? a.endTime + ':00' : a.endTime}`).getTime();
+      const timeB = new Date(`${b.date}T${b.endTime!.length === 5 ? b.endTime + ':00' : b.endTime}`).getTime();
+      return timeA - timeB;
+    })[0];
   }
 
   return (
@@ -95,7 +174,15 @@ export function PublicQuestionsView({ date, questions }: PublicQuestionsViewProp
               DAY {getDayNumber(date)} QUESTIONS
             </span>
           </div>
-          <p className="text-slate-400 font-medium">Select your answers below. Good luck!</p>
+          <div className="flex flex-col items-center justify-center gap-2 mt-4">
+            <p className="text-slate-300 font-medium">Welcome, <span className="text-white font-bold">{loggedInParticipant?.name}</span></p>
+            {globalEndTime && !isSubmitted && (
+              <div className="mt-2 inline-flex flex-col items-center bg-[#0f172a] px-6 py-3 rounded-2xl border border-amber-900/50 shadow-lg">
+                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Time Remaining</span>
+                <CountdownTimer endTime={globalEndTime.endTime!} date={globalEndTime.date} />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -128,7 +215,8 @@ export function PublicQuestionsView({ date, questions }: PublicQuestionsViewProp
                         <button
                           key={i}
                           onClick={() => handleOptionSelect(q.id, i)}
-                          className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
+                          disabled={isSubmitted}
+                          className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed ${
                             isSelected 
                               ? 'border-blue-500 bg-blue-900/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' 
                               : 'border-slate-800 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800'
@@ -154,11 +242,42 @@ export function PublicQuestionsView({ date, questions }: PublicQuestionsViewProp
           ))}
         </div>
 
-        {Object.keys(selectedOptions).length === questions.length && questions.length > 0 && (
-          <div className="flex justify-center pt-8">
-            <button className="px-12 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full font-bold text-lg shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] transition-all transform hover:-translate-y-1">
-              Submit Answers
+        {!isSubmitted ? (
+          <div className="bg-[#0f172a] rounded-2xl border border-blue-900/50 p-6 md:p-8 mt-8 shadow-xl text-center">
+            <h3 className="text-xl font-bold text-white mb-4">Ready to Submit?</h3>
+            <p className="text-slate-400 mb-6">Double-check your answers before submitting. You cannot change them later.</p>
+            <button 
+              onClick={() => {
+                setError('');
+                if (Object.keys(selectedOptions).length !== questions.length) {
+                  setError('Please answer all questions before submitting.');
+                  return;
+                }
+                
+                // Submit answers
+                Object.entries(selectedOptions).forEach(([qId, optIdx]) => {
+                  const question = questions.find(q => q.id === qId);
+                  if (question && question.options && loggedInParticipant) {
+                    addAnswer(qId, loggedInParticipant.id, question.options[optIdx]);
+                  }
+                });
+                setIsSubmitted(true);
+              }}
+              className="px-12 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-lg shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all whitespace-nowrap"
+            >
+              Submit All Answers
             </button>
+            {error && <p className="text-red-400 mt-4 text-sm font-medium bg-red-900/20 p-3 rounded-lg border border-red-900/50 text-center">{error}</p>}
+          </div>
+        ) : (
+          <div className="bg-emerald-900/20 border border-emerald-500/50 rounded-2xl p-8 text-center shadow-[0_0_30px_rgba(16,185,129,0.15)] mt-8">
+            <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+              <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-emerald-400 mb-2">Answers Submitted Successfully!</h3>
+            <p className="text-emerald-200/70">Your responses have been recorded, {loggedInParticipant?.name}. Best of luck!</p>
           </div>
         )}
       </div>

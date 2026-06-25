@@ -137,6 +137,7 @@ export function UserManager({
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
                 <th className="py-4 px-6 font-medium">Participant</th>
+                <th className="py-4 px-6 font-medium text-center">Unique ID</th>
                 <th className="py-4 px-6 font-medium text-center">Total Daily Points</th>
                 <th className="py-4 px-6 font-medium text-right">Actions</th>
               </tr>
@@ -144,7 +145,7 @@ export function UserManager({
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="py-12 text-center text-slate-500">
+                  <td colSpan={4} className="py-12 text-center text-slate-500">
                     <Users className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                     <p>No participants found matching "{search}"</p>
                   </td>
@@ -159,6 +160,11 @@ export function UserManager({
                         </div>
                         <span className="font-medium text-slate-900">{p.name}</span>
                       </div>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <span className="font-mono text-sm font-medium px-2 py-1 bg-slate-100 rounded-md text-slate-600">
+                        {p.uniqueId || '----'}
+                      </span>
                     </td>
                     <td className="py-4 px-6 text-center">
                       <span className="font-mono text-lg font-bold text-slate-700">

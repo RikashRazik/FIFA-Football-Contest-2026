@@ -4,6 +4,7 @@ import { Dashboard } from './views/Dashboard';
 import { Leaderboard } from './views/Leaderboard';
 import { QuestionsPortal } from './views/QuestionsPortal';
 import { UserManager } from './views/UserManager';
+import { ActiveQuestions } from './views/ActiveQuestions';
 import { PublicQuestionsView } from './views/PublicQuestionsView';
 import { PublicLeaderboardView } from './views/PublicLeaderboardView';
 import { LoginView } from './views/LoginView';
@@ -45,7 +46,7 @@ export default function App() {
 
   if (publicDate) {
     const dayQuestions = store.questions.filter(q => q.date === publicDate);
-    return <PublicQuestionsView date={publicDate} questions={dayQuestions} />;
+    return <PublicQuestionsView date={publicDate} questions={dayQuestions} participants={store.participants} addAnswer={store.addAnswer} />;
   }
 
   if (!isAuthenticated) {
@@ -105,6 +106,13 @@ export default function App() {
               updateParticipantDailyScore={store.updateParticipantDailyScore}
               removeParticipantDailyScore={store.removeParticipantDailyScore}
               deleteParticipant={store.deleteParticipant}
+            />
+          )}
+          {activeTab === 'active-questions' && (
+            <ActiveQuestions
+              questions={store.questions}
+              participants={store.participants}
+              answers={store.answers}
             />
           )}
         </div>

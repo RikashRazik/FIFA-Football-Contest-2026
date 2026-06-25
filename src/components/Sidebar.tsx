@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, HelpCircle, Users, LogOut, ChevronUp } from 'lucide-react';
+import { LayoutDashboard, Trophy, HelpCircle, Users, LogOut, ChevronUp, Activity } from 'lucide-react';
 import { useState } from 'react';
 
 interface SidebarProps {
@@ -15,6 +15,7 @@ export function Sidebar({ activeTab, onTabChange, onLogout }: SidebarProps) {
     { id: 'leaderboard', label: 'Leaderboard', shortLabel: 'Ranks', icon: Trophy },
     { id: 'questions', label: 'Questions Portal', shortLabel: 'Questions', icon: HelpCircle },
     { id: 'users', label: 'User Management', shortLabel: 'Users', icon: Users },
+    { id: 'active-questions', label: 'Active Questions', shortLabel: 'Active', icon: Activity },
   ];
 
   return (
