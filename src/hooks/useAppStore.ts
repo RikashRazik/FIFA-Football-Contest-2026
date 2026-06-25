@@ -9,7 +9,7 @@ export function useAppStore() {
   });
 
   const [questions, setQuestions] = useState<Question[]>(() => {
-    const saved = localStorage.getItem('fifa_questions_v2');
+    const saved = localStorage.getItem('fifa_questions_v3');
     return saved ? JSON.parse(saved) : INITIAL_QUESTIONS;
   });
 
@@ -18,7 +18,7 @@ export function useAppStore() {
   }, [participants]);
 
   useEffect(() => {
-    localStorage.setItem('fifa_questions_v2', JSON.stringify(questions));
+    localStorage.setItem('fifa_questions_v3', JSON.stringify(questions));
   }, [questions]);
 
   const updateParticipantScore = (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number) => {

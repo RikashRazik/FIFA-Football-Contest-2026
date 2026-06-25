@@ -1,5 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Question } from '../types';
+import { Clock } from 'lucide-react';
+
+const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, date }) => {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      if (!endTime) return '';
+      const now = new Date();
+      // Handle both HH:MM and HH:MM:SS formats
+      const timeStr = endTime.length === 5 ? `${endTime}:00` : endTime;
+      const targetTime = new Date(`${date}T${timeStr}`);
+      
+      const diff = targetTime.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        return 'Expired';
+      }
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    setTimeLeft(calculateTimeLeft());
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [endTime, date]);
+
+  if (!timeLeft) return null;
+
+  const isExpired = timeLeft === 'Expired';
+
+  return (
+    <span className={`text-sm font-bold px-3 py-1 rounded-full flex items-center gap-1.5 ${
+      isExpired ? 'bg-red-900/50 text-red-300 border border-red-700/50' : 'bg-amber-900/50 text-amber-300 border border-amber-700/50'
+    }`}>
+      <Clock className="w-3.5 h-3.5" />
+      {isExpired ? 'Time is up' : `${timeLeft} left`}
+    </span>
+  );
+};
 
 interface PublicQuestionsViewProps {
   date: string;
@@ -66,6 +113,7 @@ export function PublicQuestionsView({ date, questions }: PublicQuestionsViewProp
                   <span className="text-sm font-bold text-slate-500 bg-slate-800 px-3 py-1 rounded-full">
                     {q.points} Points
                   </span>
+                  {q.endTime && q.status === 'active' && <CountdownTimer endTime={q.endTime} date={q.date} />}
                 </div>
                 
                 <h2 className="text-xl md:text-2xl font-semibold text-white leading-relaxed">

@@ -8,6 +8,7 @@ export interface Question {
   date: string;
   status: 'active' | 'past' | 'upcoming';
   options?: string[];
+  endTime?: string;
 }
 
 export interface Participant {

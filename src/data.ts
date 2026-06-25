@@ -74,6 +74,22 @@ export const INITIAL_QUESTIONS: Question[] = [
     points: 1,
     date: "2026-06-12",
     options: ["Yes", "No"]
+  },
+  {
+    id: "q5",
+    text: "Who will win today's match?",
+    type: "daily",
+    points: 1,
+    date: "2026-06-25",
+    options: ["Team A", "Team B", "Draw"]
+  },
+  {
+    id: "q6",
+    text: "How many yellow cards will be issued?",
+    type: "bonus",
+    points: 2,
+    date: "2026-06-25",
+    options: ["Under 3", "3 to 5", "Over 5"]
   }
 ];
 
