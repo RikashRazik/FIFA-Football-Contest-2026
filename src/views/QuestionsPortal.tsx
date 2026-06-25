@@ -102,13 +102,15 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(q.text);
     const [editOptions, setEditOptions] = useState<string[]>(q.options || []);
+    const [editEndTime, setEditEndTime] = useState(q.endTime || '');
 
     const handleSave = () => {
       const formattedText = formatQuestionText(editText);
       const validOptions = editOptions.filter(opt => opt.trim() !== '');
       updateQuestion(q.id, { 
         text: formattedText, 
-        options: validOptions.length > 0 ? validOptions : undefined 
+        options: validOptions.length > 0 ? validOptions : undefined,
+        endTime: editEndTime || undefined
       });
       setIsEditing(false);
     };
@@ -137,6 +139,16 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none h-24"
               placeholder="Edit question..."
             />
+            
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-slate-700 w-24 shrink-0">End Time:</label>
+              <input
+                type="time"
+                value={editEndTime}
+                onChange={(e) => setEditEndTime(e.target.value)}
+                className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+              />
+            </div>
             
             <div className="space-y-3">
               {editOptions.map((opt, i) => (

@@ -127,6 +127,10 @@ export function useAppStore() {
     setAnswers(prev => [...prev, newAnswer]);
   };
 
+  const deleteParticipantAnswers = (participantId: string, questionIds: string[]) => {
+    setAnswers(prev => prev.filter(a => !(a.participantId === participantId && questionIds.includes(a.questionId))));
+  };
+
   return {
     participants,
     questions,
@@ -140,6 +144,7 @@ export function useAppStore() {
     addQuestion,
     updateQuestion,
     deleteQuestion,
-    addAnswer
+    addAnswer,
+    deleteParticipantAnswers
   };
 }

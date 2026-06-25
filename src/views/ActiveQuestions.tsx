@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Question, Participant, Answer } from '../types';
-import { Clock, Users, Activity } from 'lucide-react';
+import { Clock, Users, Activity, Trash2 } from 'lucide-react';
 
 const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, date }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -51,9 +51,10 @@ interface ActiveQuestionsProps {
   questions: Question[];
   participants: Participant[];
   answers: Answer[];
+  deleteParticipantAnswers: (participantId: string, questionIds: string[]) => void;
 }
 
-export function ActiveQuestions({ questions, participants, answers }: ActiveQuestionsProps) {
+export function ActiveQuestions({ questions, participants, answers, deleteParticipantAnswers }: ActiveQuestionsProps) {
   const activeQuestions = useMemo(() => {
     return questions.filter(q => q.status === 'active');
   }, [questions]);
@@ -175,6 +176,7 @@ export function ActiveQuestions({ questions, participants, answers }: ActiveQues
                       <th className="py-3 px-6 font-semibold">Participant</th>
                       <th className="py-3 px-6 font-semibold">Answers</th>
                       <th className="py-3 px-6 font-semibold text-right">Submission Time</th>
+                      <th className="py-3 px-6 font-semibold text-center w-16">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -210,6 +212,19 @@ export function ActiveQuestions({ questions, participants, answers }: ActiveQues
                           <span className="text-sm font-medium text-slate-600">
                             {sub.latestTimestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                           </span>
+                        </td>
+                        <td className="py-3 px-6 text-center">
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete this response?')) {
+                                deleteParticipantAnswers(sub.participantId, activeQuestions.map(q => q.id));
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete Response"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     ))}

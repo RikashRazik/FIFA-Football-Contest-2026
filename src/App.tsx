@@ -113,6 +113,7 @@ export default function App() {
               questions={store.questions}
               participants={store.participants}
               answers={store.answers}
+              deleteParticipantAnswers={store.deleteParticipantAnswers}
             />
           )}
         </div>
