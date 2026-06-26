@@ -266,12 +266,11 @@ export function useAppStore() {
     }
   };
 
-  const deleteParticipantAnswers = async (participantId: string, questionIds: string[]) => {
+  const deleteParticipantAnswers = async (answerIds: string[]) => {
     try {
       const batch = writeBatch(db);
-      const relevantAnswers = answers.filter(a => a.participantId === participantId && questionIds.includes(a.questionId));
-      relevantAnswers.forEach(a => {
-        batch.delete(doc(db, 'answers', a.id));
+      answerIds.forEach(id => {
+        batch.delete(doc(db, 'answers', id));
       });
       await batch.commit();
     } catch (error) {

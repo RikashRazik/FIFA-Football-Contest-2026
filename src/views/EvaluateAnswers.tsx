@@ -80,8 +80,8 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
       } else {
         // Manual mode
         for (const [pId, pts] of Object.entries(participantPoints)) {
-          if (pts > 0) {
-            await updateParticipantScore(pId, category, pts);
+          if (Number(pts) > 0) {
+            await updateParticipantScore(pId, category, Number(pts));
           }
         }
         await updateQuestion(selectedQuestion.id, { 

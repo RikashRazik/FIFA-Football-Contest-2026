@@ -50,7 +50,7 @@ export default function App() {
 
   if (publicDate) {
     const dayQuestions = store.questions.filter(q => q.date === publicDate);
-    return <PublicQuestionsView date={publicDate} questions={dayQuestions} participants={store.participants} addAnswer={store.addAnswer} />;
+    return <PublicQuestionsView date={publicDate} questions={dayQuestions} participants={store.participants} answers={store.answers} addAnswer={store.addAnswer} />;
   }
 
   if (!isAuthenticated) {

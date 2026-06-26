@@ -57,10 +57,12 @@ interface ActiveQuestionsProps {
   questions: Question[];
   participants: Participant[];
   answers: Answer[];
-  deleteParticipantAnswers: (participantId: string, questionIds: string[]) => void;
+  deleteParticipantAnswers: (answerIds: string[]) => void;
 }
 
 export function ActiveQuestions({ questions, participants, answers, deleteParticipantAnswers }: ActiveQuestionsProps) {
+  const [submissionToDelete, setSubmissionToDelete] = useState<{participantId: string, answers: Answer[]} | null>(null);
+
   const activeQuestions = useMemo(() => {
     return questions.filter(q => q.status === 'active' && !isQuestionTimedOut(q));
   }, [questions]);
@@ -221,11 +223,7 @@ export function ActiveQuestions({ questions, participants, answers, deletePartic
                         </td>
                         <td className="py-3 px-6 text-center">
                           <button
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to delete this response?')) {
-                                deleteParticipantAnswers(sub.participantId, activeQuestions.map(q => q.id));
-                              }
-                            }}
+                            onClick={() => setSubmissionToDelete({ participantId: sub.participantId, answers: sub.answers })}
                             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete Response"
                           >
@@ -239,6 +237,41 @@ export function ActiveQuestions({ questions, participants, answers, deletePartic
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {submissionToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-center text-slate-800 mb-2">Delete Submission?</h3>
+              <p className="text-slate-500 text-center mb-6">
+                Are you sure you want to delete this response? This action cannot be undone.
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSubmissionToDelete(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    deleteParticipantAnswers(submissionToDelete.answers.map(a => a.id));
+                    setSubmissionToDelete(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
