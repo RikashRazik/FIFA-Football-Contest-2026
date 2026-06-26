@@ -1,134 +1,282 @@
 import { useState, useEffect } from 'react';
 import { Participant, Question, Answer } from '../types';
-import { INITIAL_PARTICIPANTS, INITIAL_QUESTIONS } from '../data';
+import { db, auth } from '../lib/firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export function useAppStore() {
-  const [participants, setParticipants] = useState<Participant[]>(() => {
-    const saved = localStorage.getItem('fifa_participants_v3');
-    const parsed = saved ? JSON.parse(saved) : INITIAL_PARTICIPANTS;
-    
-    // Ensure all participants have a unique 4-digit ID
-    let updated = false;
-    const mapped = parsed.map((p: Participant) => {
-      if (!p.uniqueId) {
-        updated = true;
-        return { ...p, uniqueId: Math.floor(1000 + Math.random() * 9000).toString() };
-      }
-      return p;
-    });
-    
-    if (updated) {
-      localStorage.setItem('fifa_participants_v3', JSON.stringify(mapped));
-    }
-    
-    return mapped;
-  });
-
-  const [questions, setQuestions] = useState<Question[]>(() => {
-    const saved = localStorage.getItem('fifa_questions_v3');
-    return saved ? JSON.parse(saved) : INITIAL_QUESTIONS;
-  });
-
-  const [answers, setAnswers] = useState<Answer[]>(() => {
-    const saved = localStorage.getItem('fifa_answers_v1');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [answers, setAnswers] = useState<Answer[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('fifa_participants_v3', JSON.stringify(participants));
-  }, [participants]);
-
-  useEffect(() => {
-    localStorage.setItem('fifa_questions_v3', JSON.stringify(questions));
-  }, [questions]);
-
-  useEffect(() => {
-    localStorage.setItem('fifa_answers_v1', JSON.stringify(answers));
-  }, [answers]);
-
-  const updateParticipantScore = (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number) => {
-    setParticipants(prev => prev.map(p => {
-      if (p.id === id) {
-        return { ...p, [category]: Math.max(0, p[category] + delta) };
-      }
-      return p;
-    }));
-  };
-
-  const addParticipant = (name: string) => {
-    const newParticipant: Participant = {
-      id: Date.now().toString(),
-      name,
-      uniqueId: Math.floor(1000 + Math.random() * 9000).toString(),
-      dailyPoints: 0,
-      bonusPoints: 0,
-      bumperPoints: 0,
-      dailyScores: []
-    };
-    setParticipants(prev => [...prev, newParticipant]);
-  };
-
-  const updateParticipantName = (id: string, name: string) => {
-    setParticipants(prev => prev.map(p => p.id === id ? { ...p, name } : p));
-  };
-
-  const updateParticipantDailyScore = (id: string, dayIndex: number, score: number) => {
-    setParticipants(prev => prev.map(p => {
-      if (p.id === id) {
-        const newDailyScores = [...(p.dailyScores || [])];
-        while (newDailyScores.length <= dayIndex) {
-          newDailyScores.push(0);
+    // Migration & listeners setup
+    const initializeFirebaseData = async () => {
+      try {
+        const participantsSnap = await getDocs(collection(db, 'participants'));
+        if (participantsSnap.empty) {
+          // Migrate from localStorage
+          const savedParticipants = localStorage.getItem('fifa_participants_v3');
+          if (savedParticipants) {
+            const parsed = JSON.parse(savedParticipants);
+            const batch = writeBatch(db);
+            parsed.forEach((p: Participant) => {
+              const id = p.id || Date.now().toString() + Math.random();
+              batch.set(doc(db, 'participants', id), { ...p, id });
+            });
+            await batch.commit();
+          }
         }
-        newDailyScores[dayIndex] = Math.max(0, score);
-        const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
-        return { ...p, dailyScores: newDailyScores, dailyPoints: newDailyPoints };
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, 'participants');
       }
-      return p;
-    }));
-  };
 
-  const removeParticipantDailyScore = (id: string, dayIndex: number) => {
-    setParticipants(prev => prev.map(p => {
-      if (p.id === id) {
-        const newDailyScores = [...(p.dailyScores || [])];
-        newDailyScores.splice(dayIndex, 1);
-        const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
-        return { ...p, dailyScores: newDailyScores, dailyPoints: newDailyPoints };
+      try {
+        const questionsSnap = await getDocs(collection(db, 'questions'));
+        if (questionsSnap.empty) {
+          const savedQuestions = localStorage.getItem('fifa_questions_v3');
+          if (savedQuestions) {
+            const parsed = JSON.parse(savedQuestions);
+            const batch = writeBatch(db);
+            parsed.forEach((q: Question) => {
+              const id = q.id || Date.now().toString() + Math.random();
+              batch.set(doc(db, 'questions', id), { ...q, id });
+            });
+            await batch.commit();
+          }
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, 'questions');
       }
-      return p;
-    }));
-  };
 
-  const deleteParticipant = (id: string) => {
-    setParticipants(prev => prev.filter(p => p.id !== id));
-  };
-
-  const addQuestion = (question: Omit<Question, 'id'>) => {
-    const newQ = { ...question, id: Date.now().toString() };
-    setQuestions(prev => [newQ, ...prev]);
-  };
-
-  const updateQuestion = (id: string, updatedFields: Partial<Omit<Question, 'id'>>) => {
-    setQuestions(prev => prev.map(q => q.id === id ? { ...q, ...updatedFields } : q));
-  };
-
-  const deleteQuestion = (id: string) => {
-    setQuestions(prev => prev.filter(q => q.id !== id));
-  };
-
-  const addAnswer = (questionId: string, participantId: string, answer: string) => {
-    const newAnswer: Answer = {
-      id: Date.now().toString(),
-      questionId,
-      participantId,
-      answer,
-      timestamp: new Date().toISOString()
+      try {
+        const answersSnap = await getDocs(collection(db, 'answers'));
+        if (answersSnap.empty) {
+          const savedAnswers = localStorage.getItem('fifa_answers_v1');
+          if (savedAnswers) {
+            const parsed = JSON.parse(savedAnswers);
+            const batch = writeBatch(db);
+            parsed.forEach((a: Answer) => {
+              const id = a.id || Date.now().toString() + Math.random();
+              batch.set(doc(db, 'answers', id), { ...a, id });
+            });
+            await batch.commit();
+          }
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, 'answers');
+      }
     };
-    setAnswers(prev => [...prev, newAnswer]);
+
+    initializeFirebaseData().catch(console.error);
+
+    const unsubParticipants = onSnapshot(collection(db, 'participants'), (snap) => {
+      setParticipants(snap.docs.map(d => ({ ...d.data(), id: d.id } as Participant)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'participants');
+    });
+
+    const unsubQuestions = onSnapshot(collection(db, 'questions'), (snap) => {
+      setQuestions(snap.docs.map(d => ({ ...d.data(), id: d.id } as Question)).sort((a, b) => {
+        // preserve sorting
+        return a.date.localeCompare(b.date) || a.text.localeCompare(b.text);
+      }));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'questions');
+    });
+
+    const unsubAnswers = onSnapshot(collection(db, 'answers'), (snap) => {
+      setAnswers(snap.docs.map(d => ({ ...d.data(), id: d.id } as Answer)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'answers');
+    });
+
+    return () => {
+      unsubParticipants();
+      unsubQuestions();
+      unsubAnswers();
+    };
+  }, []);
+
+  const updateParticipantScore = async (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number) => {
+    try {
+      const participant = participants.find(p => p.id === id);
+      if (!participant) return;
+      const newScore = Math.max(0, participant[category] + delta);
+      await setDoc(doc(db, 'participants', id), { ...participant, [category]: newScore });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'participants');
+    }
   };
 
-  const deleteParticipantAnswers = (participantId: string, questionIds: string[]) => {
-    setAnswers(prev => prev.filter(a => !(a.participantId === participantId && questionIds.includes(a.questionId))));
+  const addParticipant = async (name: string): Promise<string | undefined> => {
+    try {
+      const id = Date.now().toString();
+      const uniqueId = Math.floor(1000 + Math.random() * 9000).toString();
+      const newParticipant: Participant = {
+        id,
+        name,
+        uniqueId,
+        dailyPoints: 0,
+        bonusPoints: 0,
+        bumperPoints: 0,
+        dailyScores: []
+      };
+      await setDoc(doc(db, 'participants', id), newParticipant);
+      return uniqueId;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'participants');
+    }
+  };
+
+  const updateParticipantName = async (id: string, name: string) => {
+    try {
+      const participant = participants.find(p => p.id === id);
+      if (!participant) return;
+      await setDoc(doc(db, 'participants', id), { ...participant, name });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'participants');
+    }
+  };
+
+  const updateParticipantDailyScore = async (id: string, dayIndex: number, score: number) => {
+    try {
+      const participant = participants.find(p => p.id === id);
+      if (!participant) return;
+      const newDailyScores = [...(participant.dailyScores || [])];
+      while (newDailyScores.length <= dayIndex) {
+        newDailyScores.push(0);
+      }
+      newDailyScores[dayIndex] = Math.max(0, score);
+      const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
+      await setDoc(doc(db, 'participants', id), { ...participant, dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'participants');
+    }
+  };
+
+  const removeParticipantDailyScore = async (id: string, dayIndex: number) => {
+    try {
+      const participant = participants.find(p => p.id === id);
+      if (!participant) return;
+      const newDailyScores = [...(participant.dailyScores || [])];
+      newDailyScores.splice(dayIndex, 1);
+      const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
+      await setDoc(doc(db, 'participants', id), { ...participant, dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'participants');
+    }
+  };
+
+  const deleteParticipant = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'participants', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'participants');
+    }
+  };
+
+  const addQuestion = async (question: Omit<Question, 'id'>) => {
+    try {
+      const id = Date.now().toString();
+      const newQ = { ...question, id };
+      await setDoc(doc(db, 'questions', id), newQ);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'questions');
+    }
+  };
+
+  const updateQuestion = async (id: string, updatedFields: Partial<Omit<Question, 'id'>>) => {
+    try {
+      const question = questions.find(q => q.id === id);
+      if (!question) return;
+      await setDoc(doc(db, 'questions', id), { ...question, ...updatedFields });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'questions');
+    }
+  };
+
+  const deleteQuestion = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'questions', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'questions');
+    }
+  };
+
+  const addAnswer = async (questionId: string, participantId: string, answer: string) => {
+    try {
+      const id = Date.now().toString();
+      const newAnswer: Answer = {
+        id,
+        questionId,
+        participantId,
+        answer,
+        timestamp: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'answers', id), newAnswer);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'answers');
+    }
+  };
+
+  const deleteParticipantAnswers = async (participantId: string, questionIds: string[]) => {
+    try {
+      const batch = writeBatch(db);
+      const relevantAnswers = answers.filter(a => a.participantId === participantId && questionIds.includes(a.questionId));
+      relevantAnswers.forEach(a => {
+        batch.delete(doc(db, 'answers', a.id));
+      });
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'answers');
+    }
   };
 
   return {

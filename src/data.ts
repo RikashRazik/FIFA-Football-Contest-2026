@@ -49,7 +49,8 @@ export const INITIAL_QUESTIONS: Question[] = [
     type: "daily",
     points: 1,
     date: "2026-06-11",
-    options: ["Team A", "Team B", "No goals"]
+    options: ["Team A", "Team B", "No goals"],
+    status: "active"
   },
   {
     id: "q2",
@@ -57,7 +58,8 @@ export const INITIAL_QUESTIONS: Question[] = [
     type: "bonus",
     points: 2,
     date: "2026-06-11",
-    options: ["Yes", "No"]
+    options: ["Yes", "No"],
+    status: "active"
   },
   {
     id: "q3",
@@ -65,7 +67,8 @@ export const INITIAL_QUESTIONS: Question[] = [
     type: "bumper",
     points: 5,
     date: "2026-06-11",
-    options: ["Player X", "Player Y", "Player Z", "Other"]
+    options: ["Player X", "Player Y", "Player Z", "Other"],
+    status: "active"
   },
   {
     id: "q4",
@@ -73,7 +76,8 @@ export const INITIAL_QUESTIONS: Question[] = [
     type: "daily",
     points: 1,
     date: "2026-06-12",
-    options: ["Yes", "No"]
+    options: ["Yes", "No"],
+    status: "active"
   },
   {
     id: "q5",
@@ -81,7 +85,8 @@ export const INITIAL_QUESTIONS: Question[] = [
     type: "daily",
     points: 1,
     date: "2026-06-25",
-    options: ["Team A", "Team B", "Draw"]
+    options: ["Team A", "Team B", "Draw"],
+    status: "active"
   },
   {
     id: "q6",
@@ -89,7 +94,8 @@ export const INITIAL_QUESTIONS: Question[] = [
     type: "bonus",
     points: 2,
     date: "2026-06-25",
-    options: ["Under 3", "3 to 5", "Over 5"]
+    options: ["Under 3", "3 to 5", "Over 5"],
+    status: "active"
   }
 ];
 

@@ -9,9 +9,13 @@ const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, 
     const calculateTimeLeft = () => {
       if (!endTime) return '';
       const now = new Date();
-      // Handle both HH:MM and HH:MM:SS formats
-      const timeStr = endTime.length === 5 ? `${endTime}:00` : endTime;
-      const targetTime = new Date(`${date}T${timeStr}`);
+      let targetTime;
+      if (endTime.includes('T')) {
+        targetTime = new Date(endTime);
+      } else {
+        const timeStr = endTime.length === 5 ? `${endTime}:00` : endTime;
+        targetTime = new Date(`${date}T${timeStr}`);
+      }
       
       const diff = targetTime.getTime() - now.getTime();
       
@@ -97,7 +101,7 @@ export function PublicQuestionsView({ date, questions, participants, addAnswer }
   if (questions.length === 0) {
     return (
       <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans">
-        <h1 className="text-3xl font-black text-white tracking-widest uppercase mb-4 text-center">World Cup 2026 Contest</h1>
+        <h1 className="text-3xl font-black text-white tracking-widest uppercase mb-4 text-center">SFWC 2026</h1>
         <div className="bg-[#1e293b] p-8 rounded-2xl border border-blue-900/50 max-w-md w-full text-center">
           <p className="text-xl font-bold text-slate-400 mb-2">No Questions Found</p>
           <p className="text-slate-500">There are no questions scheduled for this day.</p>
@@ -111,8 +115,11 @@ export function PublicQuestionsView({ date, questions, participants, addAnswer }
       <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans selection:bg-blue-500/30">
         <div className="max-w-md w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="text-center space-y-4 mb-8">
+            <div className="flex justify-center mb-4">
+              <img src="https://lh3.googleusercontent.com/d/1ICYyiBiZbuE_gsUv3tqsH6pFXzEst_D3" alt="Logo" className="w-24 h-24 md:w-32 md:h-32 object-contain" referrerPolicy="no-referrer" />
+            </div>
             <h1 className="text-3xl md:text-4xl font-black text-white tracking-widest uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300">
-              World Cup 2026 Contest
+              SFWC 2026
             </h1>
             <div className="inline-block bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 border border-blue-500 rounded-full px-6 py-1.5 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
               <span className="text-lg font-bold text-yellow-400 tracking-wider">
@@ -166,8 +173,11 @@ export function PublicQuestionsView({ date, questions, participants, addAnswer }
       <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
         <div className="text-center space-y-4">
+          <div className="flex justify-center mb-4">
+            <img src="https://lh3.googleusercontent.com/d/1ICYyiBiZbuE_gsUv3tqsH6pFXzEst_D3" alt="Logo" className="w-24 h-24 md:w-32 md:h-32 object-contain" referrerPolicy="no-referrer" />
+          </div>
           <h1 className="text-4xl md:text-5xl font-black text-white tracking-widest uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300">
-            World Cup 2026 Contest
+            SFWC 2026
           </h1>
           <div className="inline-block bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 border border-blue-500 rounded-full px-8 py-2 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
             <span className="text-xl font-bold text-yellow-400 tracking-wider">
@@ -257,8 +267,9 @@ export function PublicQuestionsView({ date, questions, participants, addAnswer }
                 // Submit answers
                 Object.entries(selectedOptions).forEach(([qId, optIdx]) => {
                   const question = questions.find(q => q.id === qId);
+                  const optionIndex = optIdx as number;
                   if (question && question.options && loggedInParticipant) {
-                    addAnswer(qId, loggedInParticipant.id, question.options[optIdx]);
+                    addAnswer(qId, loggedInParticipant.id, question.options[optionIndex]);
                   }
                 });
                 setIsSubmitted(true);

@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "Participant": {
+      "title": "Participant",
+      "description": "A user participating in the leaderboard",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "uniqueId": { "type": "string" },
+        "dailyPoints": { "type": "number" },
+        "bonusPoints": { "type": "number" },
+        "bumperPoints": { "type": "number" },
+        "dailyScores": {
+          "type": "array",
+          "items": { "type": "number" }
+        }
+      },
+      "required": ["id", "name", "uniqueId", "dailyPoints", "bonusPoints", "bumperPoints"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "A question to be answered",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "enum": ["daily", "bonus", "bumper"] },
+        "date": { "type": "string" },
+        "points": { "type": "number" },
+        "status": { "enum": ["active", "completed"] },
+        "options": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "endTime": { "type": "string" }
+      },
+      "required": ["id", "text", "type", "date", "points", "status"]
+    },
+    "Answer": {
+      "title": "Answer",
+      "description": "A participant's answer to a question",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "questionId": { "type": "string" },
+        "participantId": { "type": "string" },
+        "answer": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "questionId", "participantId", "answer", "timestamp"]
+    }
+  },
+  "firestore": {
+    "participants/{participantId}": {
+      "schema": { "$ref": "#/entities/Participant" },
+      "description": "List of all participants"
+    },
+    "questions/{questionId}": {
+      "schema": { "$ref": "#/entities/Question" },
+      "description": "List of all questions"
+    },
+    "answers/{answerId}": {
+      "schema": { "$ref": "#/entities/Answer" },
+      "description": "List of all answers"
+    }
+  }
+}

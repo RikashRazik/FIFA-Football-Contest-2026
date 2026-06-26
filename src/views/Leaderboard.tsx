@@ -217,40 +217,41 @@ export function Leaderboard({ participants, updateScore }: LeaderboardProps) {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-800">Leaderboard</h2>
-          <p className="text-slate-500 mt-1">Official standings for the FIFA 2026 Contest.</p>
+          <p className="text-slate-500 mt-1">Official standings for the SFWC 2026 Contest.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={(e) => {
               const url = new URL(window.location.href);
               url.searchParams.set('view', 'leaderboard');
               navigator.clipboard.writeText(url.toString());
               const target = e.currentTarget;
-              const originalText = target.innerHTML;
-              target.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M20 6 9 17l-5-5"/></svg> Copied';
-              setTimeout(() => target.innerHTML = originalText, 2000);
+              const originalHtml = target.innerHTML;
+              target.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M20 6 9 17l-5-5"/></svg>';
+              setTimeout(() => target.innerHTML = originalHtml, 2000);
             }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100"
+            title="Share Link"
+            className="flex items-center justify-center p-2.5 md:p-3 rounded-lg transition-colors bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100 shadow-sm"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            Share Link
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           </button>
           <button
             onClick={() => setIsExportModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200"
+            title="Export"
+            className="flex items-center justify-center p-2.5 md:p-3 rounded-lg transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200 shadow-sm"
           >
-            <Download className="w-4 h-4" /> Export
+            <Download className="w-5 h-5" />
           </button>
           <button
             onClick={() => setIsEditingAll(!isEditingAll)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            title={isEditingAll ? 'Done Editing' : 'Edit Scores'}
+            className={`flex items-center justify-center p-2.5 md:p-3 rounded-lg transition-colors shadow-sm ${
               isEditingAll 
-                ? 'bg-green-600 hover:bg-green-700 text-white shadow-sm' 
-                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                ? 'bg-green-600 hover:bg-green-700 text-white border border-green-600' 
+                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100'
             }`}
           >
-            {isEditingAll ? <Check className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
-            {isEditingAll ? 'Done Editing' : 'Edit Scores'}
+            {isEditingAll ? <Check className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
           </button>
         </div>
       </div>
@@ -453,7 +454,7 @@ export function Leaderboard({ participants, updateScore }: LeaderboardProps) {
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
         <div id="export-preview-table" className="bg-[#0a1128] p-8 w-[1200px] text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
           <div className="text-center mb-6">
-            <h2 className="text-4xl font-black text-white tracking-widest uppercase mb-2">World Cup 2026 Contest</h2>
+            <h2 className="text-4xl font-black text-white tracking-widest uppercase mb-2">SFWC 2026</h2>
             <div className="inline-block bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 border border-blue-500 rounded-full px-8 py-2">
               <span className="text-xl font-bold text-yellow-400 tracking-wider">
                 {exportDay === 'all' ? `DAY 1 - ${maxDays} POINT TABLE` : `DAY ${parseInt(exportDay) + 1} POINT TABLE`}

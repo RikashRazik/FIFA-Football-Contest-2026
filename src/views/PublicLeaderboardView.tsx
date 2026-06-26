@@ -38,10 +38,10 @@ export const PublicLeaderboardView: React.FC<PublicLeaderboardViewProps> = ({ pa
       <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
         <div className="text-center space-y-3 md:space-y-4">
           <div className="flex justify-center">
-            <Trophy className="w-12 h-12 md:w-16 md:h-16 text-amber-400" />
+            <img src="https://lh3.googleusercontent.com/d/1ICYyiBiZbuE_gsUv3tqsH6pFXzEst_D3" alt="Logo" className="w-24 h-24 md:w-32 md:h-32 object-contain" referrerPolicy="no-referrer" />
           </div>
           <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight uppercase px-2">
-            World Cup 2026 Contest
+            SFWC 2026
           </h1>
           <p className="text-lg md:text-xl text-slate-400 font-medium">
             Official Leaderboard

@@ -9,6 +9,8 @@ export interface Question {
   status: 'active' | 'past' | 'upcoming';
   options?: string[];
   endTime?: string;
+  isEvaluated?: boolean;
+  correctAnswer?: string;
 }
 
 export interface Participant {

@@ -5,7 +5,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 
 interface UserManagerProps {
   participants: Participant[];
-  addParticipant: (name: string) => void;
+  addParticipant: (name: string) => Promise<string | undefined> | void;
   updateParticipantName: (id: string, name: string) => void;
   updateParticipantDailyScore: (id: string, dayIndex: number, score: number) => void;
   removeParticipantDailyScore: (id: string, dayIndex: number) => void;
@@ -31,13 +31,25 @@ export function UserManager({
   const [userToDelete, setUserToDelete] = useState<Participant | null>(null);
   const [dayToDelete, setDayToDelete] = useState<{ userId: string, dayIndex: number } | null>(null);
 
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [generatedUserId, setGeneratedUserId] = useState<string | null>(null);
+
   const filtered = participants.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName.trim()) return;
-    addParticipant(newUserName.trim());
+    const uid = await addParticipant(newUserName.trim());
+    if (uid) {
+      setGeneratedUserId(uid);
+    }
+    // We don't close the modal immediately so they can see the ID
+  };
+
+  const resetAddUserModal = () => {
+    setIsAddUserModalOpen(false);
     setNewUserName('');
+    setGeneratedUserId(null);
   };
 
   const handleOpenUserModal = (user: Participant) => {
@@ -112,23 +124,14 @@ export function UserManager({
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <UserPlus className="w-5 h-5 text-indigo-600" /> Add New Participant
-        </h3>
-        <form onSubmit={handleAddUser} className="flex flex-col sm:flex-row gap-4">
-          <input 
-            type="text" 
-            value={newUserName}
-            onChange={(e) => setNewUserName(e.target.value)}
-            required
-            className="flex-1 px-4 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-            placeholder="Enter participant name"
-          />
-          <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
-            <Plus className="w-5 h-5" /> Add User
-          </button>
-        </form>
+      <div className="flex justify-end">
+        <button 
+          onClick={() => setIsAddUserModalOpen(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-lg transition-colors shadow-sm flex items-center justify-center"
+          title="Add New Participant"
+        >
+          <UserPlus className="w-5 h-5" />
+        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -174,9 +177,10 @@ export function UserManager({
                     <td className="py-4 px-6 text-right">
                       <button 
                         onClick={() => handleOpenUserModal(p)}
-                        className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition-colors"
+                        className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+                        title="Manage User"
                       >
-                        Manage
+                        <Edit2 className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
@@ -341,6 +345,83 @@ export function UserManager({
         onConfirm={handleRemoveDayScore}
         onCancel={() => setDayToDelete(null)}
       />
+
+      {/* Add User Modal */}
+      {isAddUserModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-indigo-600" />
+                Add New Participant
+              </h3>
+              <button 
+                onClick={resetAddUserModal}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {!generatedUserId ? (
+                <form onSubmit={handleAddUser} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Participant Name</label>
+                    <input 
+                      type="text" 
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      required
+                      className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                      placeholder="Enter participant name"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button 
+                      type="button"
+                      onClick={resetAddUserModal}
+                      className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> Add User
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="text-center py-4 space-y-4">
+                  <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <Check className="w-8 h-8" />
+                  </div>
+                  <h4 className="text-xl font-bold text-slate-800">User Added Successfully!</h4>
+                  <p className="text-slate-600">
+                    <span className="font-semibold text-slate-900">{newUserName}</span> has been added to the contest.
+                  </p>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mt-4 inline-block mx-auto min-w-[200px]">
+                    <p className="text-sm font-medium text-slate-500 mb-1">Generated Unique ID</p>
+                    <p className="font-mono text-2xl font-bold text-indigo-700 tracking-wider">
+                      {generatedUserId}
+                    </p>
+                  </div>
+                  <div className="pt-6">
+                    <button 
+                      onClick={resetAddUserModal}
+                      className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

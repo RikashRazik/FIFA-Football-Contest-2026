@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
-import { Question, QuestionType } from '../types';
-import { Plus, CheckCircle2, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Save, X, Link as LinkIcon } from 'lucide-react';
+import { Question, QuestionType, Participant, Answer } from '../types';
+import { Plus, CheckCircle2, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Save, X, Link as LinkIcon, Users } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 interface QuestionsPortalProps {
   questions: Question[];
+  participants: Participant[];
+  answers: Answer[];
   addQuestion: (q: Omit<Question, 'id'>) => void;
   updateQuestion: (id: string, updatedFields: Partial<Omit<Question, 'id'>>) => void;
   deleteQuestion: (id: string) => void;
+  isAddModalOpen: boolean;
+  setIsAddModalOpen: (isOpen: boolean) => void;
 }
 
-export function QuestionsPortal({ questions, addQuestion, updateQuestion, deleteQuestion }: QuestionsPortalProps) {
+export function QuestionsPortal({ questions, participants, answers, addQuestion, updateQuestion, deleteQuestion, isAddModalOpen, setIsAddModalOpen }: QuestionsPortalProps) {
   const [text, setText] = useState('');
   const [type, setType] = useState<QuestionType>('daily');
   const [points, setPoints] = useState(1);
@@ -18,7 +22,22 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
   const [endTime, setEndTime] = useState('');
   const [options, setOptions] = useState<string[]>(['', '', '']);
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const formatEndTime = (endTimeString: string) => {
+    if (!endTimeString) return '';
+    try {
+      const dateObj = new Date(endTimeString);
+      if (isNaN(dateObj.getTime())) return endTimeString;
+      
+      const today = new Date().toISOString().split('T')[0];
+      const isToday = endTimeString.startsWith(today);
+      const timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      
+      return isToday ? `${timeStr} Today` : `${timeStr} on ${dateObj.toLocaleDateString()}`;
+    } catch {
+      return endTimeString;
+    }
+  };
 
   const getQuestionStatus = (dateString: string): 'active' | 'past' | 'upcoming' => {
     const today = new Date().toISOString().split('T')[0];
@@ -49,15 +68,17 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
     const formattedText = formatQuestionText(text);
     const validOptions = options.filter(opt => opt.trim() !== '');
     
-    addQuestion({ 
+    const newQ: any = {
       text: formattedText, 
       type, 
       points, 
       date, 
-      status: getQuestionStatus(date), 
-      options: validOptions.length > 0 ? validOptions : undefined,
-      endTime: endTime || undefined
-    });
+      status: getQuestionStatus(date)
+    };
+    if (validOptions.length > 0) newQ.options = validOptions;
+    if (endTime) newQ.endTime = endTime;
+
+    addQuestion(newQ);
     
     setText('');
     setOptions(['', '', '']);
@@ -87,9 +108,35 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
     setPoints(newType === 'daily' ? 1 : newType === 'bonus' ? 3 : 5);
   };
 
-  const activeQuestions = questions.filter(q => getQuestionStatus(q.date) === 'active');
-  const pastQuestions = questions.filter(q => getQuestionStatus(q.date) === 'past');
-  const upcomingQuestions = questions.filter(q => getQuestionStatus(q.date) === 'upcoming');
+  const dailyQuestions = questions.filter(q => q.type === 'daily');
+  const bonusQuestions = questions.filter(q => q.type === 'bonus');
+  const bumperQuestions = questions.filter(q => q.type === 'bumper');
+
+  const activeQuestions = dailyQuestions.filter(q => getQuestionStatus(q.date) === 'active');
+  const pastQuestions = dailyQuestions.filter(q => getQuestionStatus(q.date) === 'past');
+  const upcomingQuestions = dailyQuestions.filter(q => getQuestionStatus(q.date) === 'upcoming');
+
+  const SectionAccordion: React.FC<{ title: React.ReactNode; children: React.ReactNode; defaultExpanded?: boolean; count: number }> = ({ title, children, defaultExpanded = false, count }) => {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+    return (
+      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+        <div 
+          className="bg-slate-50 px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors flex justify-between items-center"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2 m-0">
+            {title} ({count})
+          </h3>
+          {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+        </div>
+        {isExpanded && (
+          <div className="p-4 border-t border-slate-200 bg-white">
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const getDayNumber = (dateString: string) => {
     const start = new Date('2026-06-11T00:00:00Z');
@@ -107,11 +154,20 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
     const handleSave = () => {
       const formattedText = formatQuestionText(editText);
       const validOptions = editOptions.filter(opt => opt.trim() !== '');
-      updateQuestion(q.id, { 
-        text: formattedText, 
-        options: validOptions.length > 0 ? validOptions : undefined,
-        endTime: editEndTime || undefined
-      });
+      
+      const updatedFields: any = {
+        text: formattedText
+      };
+      
+      if (validOptions.length > 0) {
+        updatedFields.options = validOptions;
+      }
+      
+      if (editEndTime) {
+        updatedFields.endTime = editEndTime;
+      }
+      
+      updateQuestion(q.id, updatedFields);
       setIsEditing(false);
     };
 
@@ -198,52 +254,80 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
     }
 
     return (
-      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center gap-4 group">
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className={`px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-3 group relative hover:border-slate-300 transition-colors">
+        <div className="flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
               q.type === 'daily' ? 'bg-blue-100 text-blue-700' :
               q.type === 'bonus' ? 'bg-purple-100 text-purple-700' :
               'bg-emerald-100 text-emerald-700'
             }`}>
               {q.type}
             </span>
-            <span className="text-sm font-medium text-slate-500 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" /> {q.date} (Day {getDayNumber(q.date)})
+            <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
+              <Calendar className="w-3 h-3" /> {q.date} (Day {getDayNumber(q.date)})
             </span>
-            <span className="text-sm font-bold text-slate-700 ml-2">{q.points} pts</span>
+            <span className="text-[11px] font-bold text-slate-700 ml-1">{q.points} pts</span>
             {q.endTime && q.status === 'active' && (
-              <span className="text-sm font-medium text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded ml-2 border border-amber-200">
-                Ends at {q.endTime}
+              <span className="text-[11px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                Ends {formatEndTime(q.endTime)}
               </span>
             )}
           </div>
-          <p className="text-slate-900 font-medium text-lg leading-snug">{q.text}</p>
+          <p className="text-slate-800 font-medium text-sm md:text-base leading-snug">{q.text}</p>
           {q.options && q.options.length > 0 && (
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {q.options.map((opt, i) => (
-                <div key={i} className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-sm text-slate-700 flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
+                <div key={i} className={`bg-slate-50 border rounded-lg px-2.5 py-1.5 text-xs text-slate-700 flex items-center gap-2 ${
+                  q.correctAnswer === opt ? 'border-emerald-300 ring-1 ring-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-100'
+                }`}>
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                    q.correctAnswer === opt ? 'bg-emerald-200 text-emerald-800' : 'bg-indigo-100 text-indigo-700'
+                  }`}>
                     {String.fromCharCode(65 + i)}
                   </span>
-                  {opt}
+                  <span className="flex-1 truncate">{opt}</span>
+                  {q.correctAnswer === opt && <CheckCircle2 className="w-3.5 h-3.5 ml-auto text-emerald-600 shrink-0" />}
                 </div>
               ))}
             </div>
           )}
+          {q.correctAnswer && (!q.options || !q.options.includes(q.correctAnswer)) && (
+            <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 text-xs text-emerald-800 flex items-center gap-2">
+              <span className="font-bold shrink-0">Correct:</span> <span className="flex-1 truncate">{q.correctAnswer}</span>
+              <CheckCircle2 className="w-3.5 h-3.5 ml-auto text-emerald-600 shrink-0" />
+            </div>
+          )}
+          {q.isEvaluated && q.correctAnswer && (
+            <div className="mt-2 flex flex-wrap gap-1 border-t border-slate-100 pt-2">
+              {participants.map(p => {
+                const answer = answers.find(a => a.participantId === p.id && a.questionId === q.id);
+                if (!answer) return null;
+                const isCorrect = answer.answer === q.correctAnswer;
+                return (
+                  <div key={p.id} className={`text-[10px] px-1.5 py-0.5 rounded font-medium border flex items-center gap-1 ${
+                    isCorrect ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
+                  }`}>
+                    <span className="truncate max-w-[60px]">{p.name}</span>
+                    <span className="font-bold">{isCorrect ? `+${q.points}` : '0'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-slate-100">
           <button 
             onClick={() => setIsEditing(true)}
-            className="p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-md transition-colors"
           >
-            <Edit2 className="w-5 h-5" />
+            <Edit2 className="w-4 h-4" />
           </button>
           <button 
             onClick={() => setQuestionToDelete(q)}
-            className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-md transition-colors"
           >
-            <Trash2 className="w-5 h-5" />
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -265,18 +349,34 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
     return (
       <button 
         onClick={handleCopyLink}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+        title={copied ? 'Copied' : 'Share Link'}
+        className={`flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors ${
           copied ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 shadow-sm'
         }`}
       >
         {copied ? <CheckCircle2 className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
-        {copied ? 'Copied' : 'Share Link'}
       </button>
     );
   };
 
   const DayAccordion: React.FC<{ date: string; questions: Question[] }> = ({ date, questions }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    
+    // Calculate points per user for this specific day
+    const userPoints = participants.map(p => {
+      let points = 0;
+      let hasAnswers = false;
+      questions.forEach(q => {
+        const answer = answers.find(a => a.participantId === p.id && a.questionId === q.id);
+        if (answer) {
+          hasAnswers = true;
+          if (q.isEvaluated && q.correctAnswer && answer.answer === q.correctAnswer) {
+            points += q.points;
+          }
+        }
+      });
+      return { ...p, currentDayPoints: points, hasAnswers };
+    }).filter(p => p.hasAnswers).sort((a, b) => b.currentDayPoints - a.currentDayPoints);
 
     return (
       <div className="border border-slate-200 rounded-xl overflow-hidden bg-white opacity-80 hover:opacity-100 transition-all shadow-sm">
@@ -299,8 +399,26 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
           </div>
         </div>
         {isExpanded && (
-          <div className="p-4 space-y-3 border-t border-slate-200 bg-white">
-            {questions.map(q => <QuestionCard key={q.id} q={q} />)}
+          <div className="p-4 border-t border-slate-200 bg-white">
+            <div className="mb-6 space-y-3">
+              {questions.map(q => <QuestionCard key={q.id} q={q} />)}
+            </div>
+            
+            {userPoints.length > 0 && (
+              <div className="border-t border-slate-200 pt-4 mt-2">
+                <h5 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2 mb-3">
+                  <Users className="w-4 h-4 text-indigo-500" /> Day {getDayNumber(date)} Scores
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {userPoints.map(p => (
+                    <div key={p.id} className="flex justify-between items-center bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                      <span className="font-medium text-slate-800 text-sm">{p.name}</span>
+                      <span className="text-emerald-600 font-bold text-sm bg-emerald-50 px-2 rounded">{p.currentDayPoints} pts</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -308,18 +426,11 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-800">Questions Portal</h2>
-          <p className="text-slate-500 mt-1">Manage daily, bonus, and bumper questions for the contest.</p>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Plus className="w-5 h-5" /> Add Question
-        </button>
       </div>
 
       {isAddModalOpen && (
@@ -498,10 +609,10 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
           )}
         </div>
 
-        <div>
-          <h3 className="text-xl font-bold text-slate-900 mb-4 text-slate-400 border-t border-slate-200 pt-6">
-            Past Questions ({pastQuestions.length})
-          </h3>
+        <SectionAccordion 
+          title={<><AlertCircle className="w-5 h-5 text-slate-500" /> Past Questions</>} 
+          count={pastQuestions.length}
+        >
           {pastQuestions.length === 0 ? (
             <p className="text-slate-500 italic">No past questions yet.</p>
           ) : (
@@ -514,7 +625,33 @@ export function QuestionsPortal({ questions, addQuestion, updateQuestion, delete
                 })}
             </div>
           )}
-        </div>
+        </SectionAccordion>
+
+        <SectionAccordion 
+          title={<><AlertCircle className="w-5 h-5 text-indigo-500" /> Bonus Questions</>} 
+          count={bonusQuestions.length}
+        >
+          {bonusQuestions.length === 0 ? (
+            <p className="text-slate-500 italic">No bonus questions yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {bonusQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
+            </div>
+          )}
+        </SectionAccordion>
+
+        <SectionAccordion 
+          title={<><AlertCircle className="w-5 h-5 text-amber-500" /> Bumper Questions</>} 
+          count={bumperQuestions.length}
+        >
+          {bumperQuestions.length === 0 ? (
+            <p className="text-slate-500 italic">No bumper questions yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {bumperQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
+            </div>
+          )}
+        </SectionAccordion>
       </div>
 
       <ConfirmModal 
