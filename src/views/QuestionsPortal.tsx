@@ -268,11 +268,6 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
               <Calendar className="w-3 h-3" /> {q.date} (Day {getDayNumber(q.date)})
             </span>
             <span className="text-[11px] font-bold text-slate-700 ml-1">{q.points} pts</span>
-            {q.endTime && q.status === 'active' && (
-              <span className="text-[11px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                Ends {formatEndTime(q.endTime)}
-              </span>
-            )}
           </div>
           <p className="text-slate-800 font-medium text-sm md:text-base leading-snug">{q.text}</p>
           {q.options && q.options.length > 0 && (
@@ -434,41 +429,41 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       </div>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 shrink-0">
-              <div className="flex items-center gap-3">
-                <h3 className="text-lg sm:text-xl font-bold text-slate-800">Add New Question</h3>
-                <div className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-[100]">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-3 sm:p-5 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <h3 className="text-base sm:text-xl font-bold text-slate-800">Add New Question</h3>
+                <div className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-md flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
                   Day {getDayNumber(date)}
                 </div>
               </div>
               <button 
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1"
               >
                 <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="md:col-span-4">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Question Text</label>
+            <form onSubmit={handleSubmit} className="p-3 sm:p-5 overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                <div className="col-span-2 md:col-span-4">
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Question Text</label>
                   <textarea 
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none h-20 mb-3 text-sm"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none h-16 sm:h-20 mb-2 sm:mb-3 text-sm"
                     placeholder="E.g., Which stadium will host the opening match?"
                   />
                   
-                  <div className="space-y-2.5">
-                    <label className="block text-sm font-medium text-slate-700">Answer Options</label>
+                  <div className="space-y-2">
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700">Answer Options</label>
                     {options.map((opt, index) => (
                       <div key={index} className="flex items-center gap-2">
-                        <span className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
+                        <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0">
                           {String.fromCharCode(65 + index)}
                         </span>
                         <input 
@@ -476,7 +471,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                           value={opt}
                           onChange={(e) => handleOptionChange(index, e.target.value)}
                           placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                          className="flex-1 px-3 py-1.5 sm:py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
                         />
                         <button 
                           type="button"
@@ -491,18 +486,18 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                     <button
                       type="button"
                       onClick={addOptionField}
-                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-1"
+                      className="text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-1"
                     >
-                      <Plus className="w-4 h-4" /> Add Option
+                      <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Option
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Type</label>
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Type</label>
                   <select 
                     value={type}
                     onChange={handleTypeChange}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white text-sm"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white text-sm"
                   >
                     <option value="daily">Daily</option>
                     <option value="bonus">Bonus</option>
@@ -510,50 +505,50 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Points</label>
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Points</label>
                   <input 
                     type="number" 
                     min="1"
                     value={points}
                     onChange={(e) => setPoints(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Date</label>
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Date</label>
                   <input 
                     type="date" 
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">End Time</label>
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">End Time</label>
                   <input 
                     type="time" 
                     step="1"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
                   />
                 </div>
               </div>
               
-              <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end gap-3">
+              <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
                 <button 
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-5 py-2 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900 transition-all text-sm"
+                  className="px-4 py-1.5 sm:px-5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900 transition-all text-xs sm:text-sm"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors shadow-sm flex items-center gap-2 text-sm"
+                  className="px-4 py-1.5 sm:px-5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg sm:rounded-xl transition-colors shadow-sm flex items-center gap-2 text-xs sm:text-sm"
                 >
-                  <Save className="w-4 h-4" /> Save Question
+                  <Save className="w-3 h-3 sm:w-4 sm:h-4" /> Save Question
                 </button>
               </div>
             </form>
