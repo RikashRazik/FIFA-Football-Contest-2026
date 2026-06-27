@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './views/Dashboard';
 import { Leaderboard } from './views/Leaderboard';
@@ -12,14 +13,24 @@ import { PublicLeaderboardView } from './views/PublicLeaderboardView';
 import { LoginView } from './views/LoginView';
 import { useAppStore } from './hooks/useAppStore';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from './utils';
+import { ParticipantProfileModal } from './components/ParticipantProfileModal';
+import { Participant } from './types';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('fifa_admin_auth') === 'true';
   });
   const store = useAppStore();
+
+  const handleParticipantClick = (participant: Participant) => {
+    setSelectedParticipant(participant);
+    setIsProfileModalOpen(true);
+  };
 
   const [publicDate, setPublicDate] = useState<string | null>(() => {
     return new URLSearchParams(window.location.search).get('date');
@@ -62,6 +73,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+      <Toaster position="top-right" />
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onLogout={handleLogout} activeCount={activeCount} evaluateCount={evaluateCount} />
       
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50 pb-[72px] md:pb-0 relative">
@@ -101,6 +113,7 @@ export default function App() {
             <Leaderboard 
               participants={store.participants} 
               updateScore={store.updateParticipantScore}
+              onParticipantClick={handleParticipantClick}
             />
           )}
           {activeTab === 'questions' && (
@@ -123,6 +136,7 @@ export default function App() {
               updateParticipantDailyScore={store.updateParticipantDailyScore}
               removeParticipantDailyScore={store.removeParticipantDailyScore}
               deleteParticipant={store.deleteParticipant}
+              onParticipantClick={handleParticipantClick}
             />
           )}
           {activeTab === 'active-questions' && (
@@ -155,6 +169,17 @@ export default function App() {
             <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
           </button>
         )}
+
+        <ParticipantProfileModal 
+          isOpen={isProfileModalOpen} 
+          onClose={() => {
+            setIsProfileModalOpen(false);
+            setTimeout(() => setSelectedParticipant(null), 300);
+          }}
+          participant={selectedParticipant}
+          questions={store.questions}
+          answers={store.answers}
+        />
       </main>
     </div>
   );

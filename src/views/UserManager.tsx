@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Participant } from '../types';
 import { Search, Plus, Minus, UserPlus, Edit2, Check, X, Trash2, Users, MoreVertical } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { toast } from 'react-hot-toast';
 
 interface UserManagerProps {
   participants: Participant[];
@@ -10,6 +11,7 @@ interface UserManagerProps {
   updateParticipantDailyScore: (id: string, dayIndex: number, score: number) => void;
   removeParticipantDailyScore: (id: string, dayIndex: number) => void;
   deleteParticipant: (id: string) => void;
+  onParticipantClick?: (participant: Participant) => void;
 }
 
 export function UserManager({ 
@@ -18,7 +20,8 @@ export function UserManager({
   updateParticipantName, 
   updateParticipantDailyScore, 
   removeParticipantDailyScore,
-  deleteParticipant 
+  deleteParticipant,
+  onParticipantClick
 }: UserManagerProps) {
   const [search, setSearch] = useState('');
   const [newUserName, setNewUserName] = useState('');
@@ -99,6 +102,7 @@ export function UserManager({
         setSelectedUser({ ...selectedUser, dailyScores: updatedScores, dailyPoints: newDailyPoints });
       }
       setDayToDelete(null);
+      toast.success('Day score removed successfully!');
     }
   };
 
@@ -161,7 +165,14 @@ export function UserManager({
                         <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
                           {p.name.charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-slate-900">{p.name}</span>
+                        <button 
+                          onClick={() => {
+                            if (onParticipantClick) onParticipantClick(p);
+                          }}
+                          className="font-medium text-slate-900 hover:text-indigo-600 hover:underline text-left"
+                        >
+                          {p.name}
+                        </button>
                       </div>
                     </td>
                     <td className="py-4 px-6 text-center">
@@ -332,6 +343,7 @@ export function UserManager({
               handleCloseUserModal();
             }
             setUserToDelete(null);
+            toast.success('Participant deleted successfully!');
           }
         }}
         onCancel={() => setUserToDelete(null)}

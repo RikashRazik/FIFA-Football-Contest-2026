@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Question, Participant, Answer } from '../types';
 import { Clock, Users, Activity, Trash2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from '../utils';
 
 const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, date }) => {
@@ -264,6 +265,7 @@ export function ActiveQuestions({ questions, participants, answers, deletePartic
                   onClick={() => {
                     deleteParticipantAnswers(submissionToDelete.answers.map(a => a.id));
                     setSubmissionToDelete(null);
+                    toast.success('Submission deleted successfully!');
                   }}
                   className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium shadow-sm transition-colors"
                 >

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'react-hot-toast';
 import { Question, QuestionType, Participant, Answer } from '../types';
 import { Plus, CheckCircle2, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Save, X, Link as LinkIcon, Users } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -151,6 +152,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     const [editText, setEditText] = useState(q.text);
     const [editOptions, setEditOptions] = useState<string[]>(q.options || []);
     const [editEndTime, setEditEndTime] = useState(q.endTime || '');
+    const [editCorrectAnswer, setEditCorrectAnswer] = useState(q.correctAnswer || '');
 
     const handleSave = () => {
       const formattedText = formatQuestionText(editText);
@@ -166,6 +168,12 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       
       if (editEndTime) {
         updatedFields.endTime = editEndTime;
+      }
+
+      if (editCorrectAnswer) {
+        updatedFields.correctAnswer = editCorrectAnswer;
+      } else {
+        updatedFields.correctAnswer = '';
       }
       
       updateQuestion(q.id, updatedFields);
@@ -235,6 +243,32 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                 <Plus className="w-4 h-4" /> Add Option
               </button>
             </div>
+
+            {getDynamicQuestionStatus(q) === 'past' && (
+              <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-indigo-100">
+                <label className="text-sm font-medium text-slate-700">Correct Answer:</label>
+                {editOptions.length > 0 ? (
+                  <select
+                    value={editCorrectAnswer}
+                    onChange={(e) => setEditCorrectAnswer(e.target.value)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all appearance-none bg-white"
+                  >
+                    <option value="">Select correct answer...</option>
+                    {editOptions.map((opt, i) => (
+                      <option key={i} value={opt}>Option {String.fromCharCode(65 + i)} - {opt}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={editCorrectAnswer}
+                    onChange={(e) => setEditCorrectAnswer(e.target.value)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                    placeholder="Enter correct answer..."
+                  />
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-end gap-2">
             <button 
@@ -668,6 +702,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
           if (questionToDelete) {
             deleteQuestion(questionToDelete.id);
             setQuestionToDelete(null);
+            toast.success('Question deleted successfully!');
           }
         }}
         onCancel={() => setQuestionToDelete(null)}

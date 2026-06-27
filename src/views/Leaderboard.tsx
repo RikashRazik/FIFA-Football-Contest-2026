@@ -6,9 +6,10 @@ import * as htmlToImage from 'html-to-image';
 interface LeaderboardProps {
   participants: Participant[];
   updateScore: (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number) => void;
+  onParticipantClick?: (participant: Participant) => void;
 }
 
-export function Leaderboard({ participants, updateScore }: LeaderboardProps) {
+export function Leaderboard({ participants, updateScore, onParticipantClick }: LeaderboardProps) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [isEditingAll, setIsEditingAll] = useState(false);
 
@@ -292,9 +293,15 @@ export function Leaderboard({ participants, updateScore }: LeaderboardProps) {
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <span className={`font-medium ${isTop3 ? 'text-slate-900 font-bold' : 'text-slate-700'}`}>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onParticipantClick) onParticipantClick(p);
+                          }}
+                          className={`font-medium hover:text-indigo-600 hover:underline ${isTop3 ? 'text-slate-900 font-bold' : 'text-slate-700'}`}
+                        >
                           {p.name}
-                        </span>
+                        </button>
                       </td>
                       <td className="py-4 px-6 text-center">
                         {isEditingAll ? (

@@ -144,12 +144,23 @@ export function useAppStore() {
     };
   }, []);
 
-  const updateParticipantScore = async (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number) => {
+  const updateParticipantScore = async (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number, dayIndex?: number) => {
     try {
       const participant = participants.find(p => p.id === id);
       if (!participant) return;
       const newScore = Math.max(0, participant[category] + delta);
-      await setDoc(doc(db, 'participants', id), { ...participant, [category]: newScore });
+      
+      const updates: any = { [category]: newScore };
+      if (category === 'dailyPoints' && dayIndex !== undefined) {
+        const newDailyScores = [...(participant.dailyScores || [])];
+        while (newDailyScores.length <= dayIndex) {
+          newDailyScores.push(0);
+        }
+        newDailyScores[dayIndex] = Math.max(0, newDailyScores[dayIndex] + delta);
+        updates.dailyScores = newDailyScores;
+      }
+      
+      await setDoc(doc(db, 'participants', id), { ...participant, ...updates });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Question } from '../types';
 import { Clock } from 'lucide-react';
+import { isQuestionTimedOut } from '../utils';
 
 const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, date }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -255,7 +256,7 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                         <button
                           key={i}
                           onClick={() => handleOptionSelect(q.id, i)}
-                          disabled={isSubmitted}
+                          disabled={isSubmitted || isQuestionTimedOut(q)}
                           className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed ${
                             isSelected 
                               ? 'border-blue-500 bg-blue-900/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' 
@@ -304,14 +305,16 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
               <button 
                 onClick={() => {
                   setError('');
-                  if (Object.keys(selectedOptions).length !== questions.length) {
-                    setError('Please answer all questions before submitting.');
+                  if (Object.keys(selectedOptions).length !== questions.filter(q => !isQuestionTimedOut(q)).length) {
+                    setError('Please answer all available questions before submitting.');
                     return;
                   }
                   
                   // Submit answers
                   Object.entries(selectedOptions).forEach(([qId, optIdx]) => {
                     const question = questions.find(q => q.id === qId);
+                    if (question && isQuestionTimedOut(question)) return;
+                    
                     const optionIndex = optIdx as number;
                     if (question && question.options && loggedInParticipant) {
                       addAnswer(qId, loggedInParticipant.id, question.options[optionIndex]);

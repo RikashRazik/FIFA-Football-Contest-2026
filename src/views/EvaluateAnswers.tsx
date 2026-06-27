@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Question, Participant, Answer } from '../types';
 import { CheckCircle, AlertCircle, ChevronRight, Check, Settings2, Zap } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from '../utils';
 
 interface EvaluateAnswersProps {
   questions: Question[];
   participants: Participant[];
   answers: Answer[];
-  updateParticipantScore: (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number) => void;
+  updateParticipantScore: (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number, dayIndex?: number) => void;
   updateQuestion: (id: string, updatedFields: Partial<Omit<Question, 'id'>>) => void;
 }
 
@@ -47,6 +48,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     }
     setParticipantPoints(newPoints);
     setBulkFeedback(`Successfully matched ${matchedCount} participants! Please review the preview below before finalizing.`);
+    toast.success(`Successfully matched ${matchedCount} participants!`);
   };
 
   // When a question is selected
@@ -100,10 +102,17 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
       
       const category = categoryMap[selectedQuestion.type];
       
+      const getDayIndex = (dateString: string) => {
+        const start = new Date('2026-06-11T00:00:00Z');
+        const target = new Date(dateString + 'T00:00:00Z');
+        return Math.floor((target.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      };
+      const dayIdx = getDayIndex(selectedQuestion.date);
+      
       if (evaluationMode === 'auto') {
         // Update score for each matched participant
         for (const p of matchedParticipants) {
-          await updateParticipantScore(p.id, category, selectedQuestion.points);
+          await updateParticipantScore(p.id, category, selectedQuestion.points, dayIdx);
         }
         await updateQuestion(selectedQuestion.id, { 
           status: 'past', 
@@ -114,7 +123,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
         // Manual mode
         for (const [pId, pts] of Object.entries(participantPoints)) {
           if (Number(pts) > 0) {
-            await updateParticipantScore(pId, category, Number(pts));
+            await updateParticipantScore(pId, category, Number(pts), dayIdx);
           }
         }
         await updateQuestion(selectedQuestion.id, { 
@@ -132,13 +141,59 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
       setBulkText('');
       setBulkFeedback('');
       setShowBulkPaste(false);
+      toast.success('Leaderboard updated successfully!');
     } catch (error) {
       console.error("Error updating leaderboard", error);
+      toast.error('Failed to update leaderboard.');
     } finally {
       setIsUpdating(false);
     }
   };
 
+
+  const handleSkipEvaluation = async () => {
+    if (!selectedQuestion || isUpdating) return;
+
+    let answerToSave = '';
+    if (evaluationMode === 'auto') {
+      if (!selectedAnswer) {
+        alert("Please select a correct answer to save before skipping evaluation.");
+        return;
+      }
+      answerToSave = selectedAnswer;
+    } else {
+      if (!manualCorrectAnswer) {
+        alert("Please provide or select a correct answer to save before skipping evaluation.");
+        return;
+      }
+      answerToSave = manualCorrectAnswer;
+    }
+
+    setIsUpdating(true);
+    
+    try {
+      await updateQuestion(selectedQuestion.id, { 
+        status: 'past', 
+        isEvaluated: true,
+        correctAnswer: answerToSave
+      });
+      
+      // Reset state
+      setSelectedQuestion(null);
+      setSelectedAnswer(null);
+      setManualCorrectAnswer('');
+      setParticipantPoints({});
+      setBulkText('');
+      setBulkFeedback('');
+      setShowBulkPaste(false);
+      toast.success('Evaluation skipped and marked as evaluated!');
+    } catch (error) {
+      console.error("Error skipping evaluation", error);
+      toast.error('Failed to skip evaluation.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -195,16 +250,25 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
         <div className="lg:col-span-2">
           {selectedQuestion ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="p-6 border-b border-slate-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-slate-100 text-slate-600">
-                    {selectedQuestion.type} Question
-                  </span>
-                  <span className="text-xs font-bold px-2 py-1 rounded-md bg-emerald-100 text-emerald-700">
-                    {selectedQuestion.points} Points
-                  </span>
+              <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-slate-100 text-slate-600">
+                      {selectedQuestion.type} Question
+                    </span>
+                    <span className="text-xs font-bold px-2 py-1 rounded-md bg-emerald-100 text-emerald-700">
+                      {selectedQuestion.points} Points
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">{selectedQuestion.text}</h3>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">{selectedQuestion.text}</h3>
+                <button
+                  onClick={handleSkipEvaluation}
+                  disabled={isUpdating}
+                  className="shrink-0 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Skip & Mark Evaluated
+                </button>
               </div>
 
               <div className="p-6">
