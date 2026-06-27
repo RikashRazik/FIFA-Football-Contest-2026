@@ -22,7 +22,7 @@ export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluat
 
   return (
     <>
-      <aside className="hidden md:flex w-56 bg-[#0a1128] border-r border-slate-800 flex-col flex-shrink-0 text-slate-400 h-full">
+      <aside className="hidden md:flex w-64 bg-[#0a1128] border-r border-slate-800 flex-col flex-shrink-0 text-slate-400 h-full">
         <div className="p-5 flex items-center gap-3 border-b border-slate-800/50">
           <img src="https://lh3.googleusercontent.com/d/1ICYyiBiZbuE_gsUv3tqsH6pFXzEst_D3" alt="Logo" className="w-8 h-8 object-contain rounded" referrerPolicy="no-referrer" />
           <span className="text-white text-sm font-bold tracking-widest uppercase">SFWC 2026</span>
@@ -43,7 +43,7 @@ export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluat
                 }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-blue-400' : 'text-slate-500'}`} />
-                <span className="flex-1 text-left">{item.label}</span>
+                <span className="flex-1 text-left whitespace-nowrap truncate text-[13px]">{item.label}</span>
                 {item.count !== undefined && item.count > 0 && (
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
                     {item.count}
