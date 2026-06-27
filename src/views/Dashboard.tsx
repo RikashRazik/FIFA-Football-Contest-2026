@@ -1,5 +1,6 @@
+import React, { useState } from 'react';
 import { Participant, Question, Answer } from '../types';
-import { Users, Trophy, HelpCircle, ArrowUpRight, Activity, Clock } from 'lucide-react';
+import { Users, Trophy, HelpCircle, ArrowUpRight, Activity, Clock, X } from 'lucide-react';
 
 interface DashboardProps {
   participants: Participant[];
@@ -9,6 +10,8 @@ interface DashboardProps {
 }
 
 export function Dashboard({ participants, questions, answers, onNavigate }: DashboardProps) {
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
   const activeQuestions = questions.filter(q => q.status === 'active').length;
   
   const participantsWithTotals = participants.map(p => ({
@@ -242,8 +245,8 @@ export function Dashboard({ participants, questions, answers, onNavigate }: Dash
                 <p>No recent user activity found.</p>
               </div>
             ) : (
-              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {recentAnswers.map((ans, i) => {
+              <div className="space-y-4">
+                {recentAnswers.slice(0, 5).map((ans, i) => {
                   const participant = participants.find(p => p.id === ans.participantId);
                   const question = questions.find(q => q.id === ans.questionId);
                   
@@ -269,11 +272,82 @@ export function Dashboard({ participants, questions, answers, onNavigate }: Dash
                     </div>
                   );
                 })}
+                {recentAnswers.length > 5 && (
+                  <button
+                    onClick={() => setIsHistoryModalOpen(true)}
+                    className="w-full py-3 mt-4 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
+                  >
+                    View More History
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* History Modal */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Action History</h2>
+                  <p className="text-sm text-slate-500 font-medium mt-0.5">Showing last {recentAnswers.length} actions</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="p-2 hover:bg-slate-200 text-slate-500 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-4 bg-slate-50/30">
+              {recentAnswers.map((ans, i) => {
+                const participant = participants.find(p => p.id === ans.participantId);
+                const question = questions.find(q => q.id === ans.questionId);
+                
+                return (
+                  <div key={`modal-ans-${ans.id || i}`} className="flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-blue-300 transition-all">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0 border border-blue-200">
+                      <span className="font-bold text-blue-700 text-sm">
+                        {participant?.name.substring(0, 2).toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-900">
+                        <span className="font-bold text-slate-800">{participant?.name || 'A user'}</span> submitted an answer for <span className="font-semibold text-slate-700">Day {question ? getDayNumber(question.date) : ''} {question?.type || 'Daily'} Question</span>
+                      </p>
+                      <div className="mt-2 bg-slate-50 px-3 py-2 rounded text-sm text-slate-700 border border-slate-100 inline-block font-medium">
+                        Answer: <span className="text-slate-900">{ans.answer}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        {formatTimestamp(ans.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="p-5 border-t border-slate-100 bg-white">
+              <button 
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
