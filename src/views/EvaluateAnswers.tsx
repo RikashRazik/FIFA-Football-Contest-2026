@@ -286,13 +286,31 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <div>
                       <label className="block font-semibold text-slate-800 mb-2">Correct Answer (Optional)</label>
-                      <input
-                        type="text"
-                        value={manualCorrectAnswer}
-                        onChange={(e) => setManualCorrectAnswer(e.target.value)}
-                        placeholder="Enter the official correct answer..."
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-shadow"
-                      />
+                      {selectedQuestion.options && selectedQuestion.options.length > 0 ? (
+                        <div className="relative">
+                          <select
+                            value={manualCorrectAnswer}
+                            onChange={(e) => setManualCorrectAnswer(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-shadow appearance-none bg-white"
+                          >
+                            <option value="">Select the correct option...</option>
+                            {selectedQuestion.options.map((opt, i) => (
+                              <option key={i} value={opt}>Option {String.fromCharCode(65 + i)} - {opt}</option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                          </div>
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={manualCorrectAnswer}
+                          onChange={(e) => setManualCorrectAnswer(e.target.value)}
+                          placeholder="Enter the official correct answer..."
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-shadow"
+                        />
+                      )}
                       <p className="text-xs text-slate-500 mt-2">This will be saved as the correct answer for reference.</p>
                     </div>
 
@@ -315,7 +333,19 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                                     <span className="font-medium text-slate-800">{p.name}</span>
                                     {!ans && <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">No Answer</span>}
                                   </div>
-                                  {ans && <div className="text-sm text-slate-600 bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">{ans.answer}</div>}
+                                  {ans && (
+                                    <div className="text-sm text-slate-600 bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">
+                                      {(() => {
+                                        if (selectedQuestion.options) {
+                                          const optIndex = selectedQuestion.options.indexOf(ans.answer);
+                                          if (optIndex !== -1) {
+                                            return `Option ${String.fromCharCode(65 + optIndex)} - ${ans.answer}`;
+                                          }
+                                        }
+                                        return ans.answer;
+                                      })()}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                                   <label className="text-xs font-medium text-slate-500">Points:</label>

@@ -92,7 +92,8 @@ export default function App() {
           {activeTab === 'dashboard' && (
             <Dashboard 
               participants={store.participants} 
-              questions={store.questions} 
+              questions={store.questions}
+              answers={store.answers}
               onNavigate={setActiveTab} 
             />
           )}

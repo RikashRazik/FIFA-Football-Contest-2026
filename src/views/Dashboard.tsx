@@ -1,13 +1,14 @@
-import { Participant, Question } from '../types';
-import { Users, Trophy, HelpCircle, ArrowUpRight } from 'lucide-react';
+import { Participant, Question, Answer } from '../types';
+import { Users, Trophy, HelpCircle, ArrowUpRight, Activity, Clock } from 'lucide-react';
 
 interface DashboardProps {
   participants: Participant[];
   questions: Question[];
+  answers: Answer[];
   onNavigate: (tab: string) => void;
 }
 
-export function Dashboard({ participants, questions, onNavigate }: DashboardProps) {
+export function Dashboard({ participants, questions, answers, onNavigate }: DashboardProps) {
   const activeQuestions = questions.filter(q => q.status === 'active').length;
   
   const participantsWithTotals = participants.map(p => ({
@@ -24,6 +25,22 @@ export function Dashboard({ participants, questions, onNavigate }: DashboardProp
     const diffDays = Math.floor((target.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     return diffDays + 1;
   };
+
+  const formatTimestamp = (isoString: string) => {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  const recentAnswers = [...answers].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 50);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
@@ -204,6 +221,54 @@ export function Dashboard({ participants, questions, onNavigate }: DashboardProp
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* User History Log */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col lg:col-span-2">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-600" />
+              <h3 className="font-semibold text-slate-900">Real-Time User Actions</h3>
+            </div>
+            <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100">Live</span>
+          </div>
+          <div className="p-6">
+            {recentAnswers.length === 0 ? (
+              <div className="py-8 flex flex-col items-center justify-center text-center text-slate-500">
+                <Clock className="w-12 h-12 text-slate-200 mb-3" />
+                <p>No recent user activity found.</p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {recentAnswers.map((ans, i) => {
+                  const participant = participants.find(p => p.id === ans.participantId);
+                  const question = questions.find(q => q.id === ans.questionId);
+                  
+                  return (
+                    <div key={`ans-${ans.id || i}`} className="flex items-start gap-4 p-4 rounded-lg bg-slate-50 border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0 border border-blue-200">
+                        <span className="font-bold text-blue-700 text-sm">
+                          {participant?.name.substring(0, 2).toUpperCase() || 'U'}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-900">
+                          <span className="font-bold text-slate-800">{participant?.name || 'A user'}</span> submitted an answer for <span className="font-semibold text-slate-700">Day {question ? getDayNumber(question.date) : ''} {question?.type || 'Daily'} Question</span>
+                        </p>
+                        <div className="mt-2 bg-white px-3 py-2 rounded text-sm text-slate-600 border border-slate-200 shadow-sm inline-block">
+                          Answer: <span className="font-medium text-slate-900">{ans.answer}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          {formatTimestamp(ans.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
