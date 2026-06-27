@@ -11,6 +11,8 @@ export interface Question {
   endTime?: string;
   isEvaluated?: boolean;
   correctAnswer?: string;
+  isManualInput?: boolean;
+  manualInputCount?: number;
 }
 
 export interface Participant {

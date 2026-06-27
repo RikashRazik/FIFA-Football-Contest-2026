@@ -1,5 +1,16 @@
 import { Question } from './types';
 
+export const COUNTRIES = [
+  'Argentina', 'Algeria', 'Australia', 'Austria', 'Belgium', 
+  'Bosnia and Herzegovina', 'Brazil', 'Canada', 'Cape Verde', 
+  'Colombia', 'Croatia', 'DR Congo', 'Ecuador', 'Egypt', 
+  'England', 'France', 'Germany', 'Ghana', 'Iran', 'Ivory Coast', 
+  'Japan', 'Mexico', 'Morocco', 'Netherlands', 'New Zealand', 
+  'Norway', 'Paraguay', 'Portugal', 'Scotland', 'Senegal', 
+  'South Africa', 'South Korea', 'Spain', 'Sweden', 'Switzerland', 
+  'United States', 'Uzbekistan'
+];
+
 export const isQuestionTimedOut = (q: Question) => {
   if (q.status === 'past' || q.isEvaluated) return true;
   

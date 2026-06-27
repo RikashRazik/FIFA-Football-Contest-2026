@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Question } from '../types';
 import { Clock } from 'lucide-react';
-import { isQuestionTimedOut } from '../utils';
+import { isQuestionTimedOut, COUNTRIES } from '../utils';
 
 const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, date }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -63,7 +63,7 @@ interface PublicQuestionsViewProps {
 }
 
 export function PublicQuestionsView({ date, questions, participants, answers, addAnswer }: PublicQuestionsViewProps) {
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, number>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, number | string | string[]>>({});
   const [uniqueId, setUniqueId] = useState('');
   const [error, setError] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -78,11 +78,11 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
     return diffDays + 1;
   };
 
-  const handleOptionSelect = (questionId: string, optionIndex: number) => {
+  const handleOptionSelect = (questionId: string, optionValue: number | string | string[]) => {
     if (isSubmitted) return;
     setSelectedOptions(prev => ({
       ...prev,
-      [questionId]: optionIndex
+      [questionId]: optionValue
     }));
   };
 
@@ -108,13 +108,21 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
     if (hasSubmitted) {
       setIsSubmitted(true);
       const existingAnswers = answers.filter(a => a.participantId === participant.id && questionIds.includes(a.questionId));
-      const newSelectedOptions: Record<string, number> = {};
+      const newSelectedOptions: Record<string, number | string | string[]> = {};
       existingAnswers.forEach(ans => {
         const q = questions.find(q => q.id === ans.questionId);
-        if (q && q.options) {
-          const idx = q.options.indexOf(ans.answer);
-          if (idx !== -1) {
-            newSelectedOptions[q.id] = idx;
+        if (q) {
+          if (q.isManualInput) {
+            if (q.manualInputCount && q.manualInputCount > 1) {
+              newSelectedOptions[q.id] = ans.answer.split(' | ');
+            } else {
+              newSelectedOptions[q.id] = ans.answer;
+            }
+          } else if (q.options) {
+            const idx = q.options.indexOf(ans.answer);
+            if (idx !== -1) {
+              newSelectedOptions[q.id] = idx;
+            }
           }
         }
       });
@@ -194,6 +202,11 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
 
   return (
     <div className="min-h-screen bg-[#0a1128] text-slate-200 p-6 md:p-12 font-sans selection:bg-blue-500/30">
+      <datalist id="countries-list">
+        {COUNTRIES.map((country) => (
+          <option key={country} value={country} />
+        ))}
+      </datalist>
       <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
         <div className="text-center space-y-4">
@@ -248,35 +261,69 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                   <span className="text-blue-500 mr-2">Q{qIndex + 1}.</span> {q.text}
                 </h2>
 
-                {q.options && q.options.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
-                    {q.options.map((opt, i) => {
-                      const isSelected = selectedOptions[q.id] === i;
+                {q.isManualInput ? (
+                  <div className="pt-4 space-y-3">
+                    {Array.from({ length: q.manualInputCount || 1 }).map((_, boxIndex) => {
+                      const currentAns = Array.isArray(selectedOptions[q.id])
+                        ? (selectedOptions[q.id] as string[])[boxIndex]
+                        : (boxIndex === 0 ? (selectedOptions[q.id] as string) : '');
+                      
                       return (
-                        <button
-                          key={i}
-                          onClick={() => handleOptionSelect(q.id, i)}
+                        <input
+                          key={boxIndex}
+                          type="text"
+                          list="countries-list"
+                          placeholder={q.manualInputCount && q.manualInputCount > 1 ? `Answer ${boxIndex + 1}...` : "Type your answer here..."}
+                          value={currentAns || ''}
+                          onChange={(e) => {
+                            const newValue = e.target.value;
+                            const newArr = Array.isArray(selectedOptions[q.id])
+                              ? [...(selectedOptions[q.id] as string[])]
+                              : [(selectedOptions[q.id] as string) || ''];
+                            
+                            while(newArr.length < (q.manualInputCount || 1)) {
+                              newArr.push('');
+                            }
+                            newArr[boxIndex] = newValue;
+                            handleOptionSelect(q.id, newArr);
+                          }}
                           disabled={isSubmitted || isQuestionTimedOut(q)}
-                          className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed ${
-                            isSelected 
-                              ? 'border-blue-500 bg-blue-900/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' 
-                              : 'border-slate-800 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800'
-                          }`}
-                        >
-                          <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
-                            isSelected
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-slate-700 text-slate-300'
-                          }`}>
-                            {String.fromCharCode(65 + i)}
-                          </span>
-                          <span className={`font-medium ${isSelected ? 'text-white' : 'text-slate-300'}`}>
-                            {opt}
-                          </span>
-                        </button>
+                          className="w-full px-4 py-3 bg-slate-800/50 border-2 border-slate-700 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-900/50 outline-none transition-all text-white placeholder-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
                       );
                     })}
                   </div>
+                ) : (
+                  q.options && q.options.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                      {q.options.map((opt, i) => {
+                        const isSelected = selectedOptions[q.id] === i;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => handleOptionSelect(q.id, i)}
+                            disabled={isSubmitted || isQuestionTimedOut(q)}
+                            className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+                              isSelected 
+                                ? 'border-blue-500 bg-blue-900/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' 
+                                : 'border-slate-800 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800'
+                            }`}
+                          >
+                            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
+                              isSelected
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-slate-700 text-slate-300'
+                            }`}>
+                              {String.fromCharCode(65 + i)}
+                            </span>
+                            <span className={`font-medium ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                              {opt}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )
                 )}
               </div>
             </div>
@@ -311,13 +358,18 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                   }
                   
                   // Submit answers
-                  Object.entries(selectedOptions).forEach(([qId, optIdx]) => {
+                  Object.entries(selectedOptions).forEach(([qId, optValue]) => {
                     const question = questions.find(q => q.id === qId);
                     if (question && isQuestionTimedOut(question)) return;
                     
-                    const optionIndex = optIdx as number;
-                    if (question && question.options && loggedInParticipant) {
-                      addAnswer(qId, loggedInParticipant.id, question.options[optionIndex]);
+                    if (question && loggedInParticipant) {
+                      if (question.isManualInput) {
+                        const valString = Array.isArray(optValue) ? optValue.filter(Boolean).join(' | ') : String(optValue);
+                        addAnswer(qId, loggedInParticipant.id, valString);
+                      } else if (question.options) {
+                        const optionIndex = optValue as number;
+                        addAnswer(qId, loggedInParticipant.id, question.options[optionIndex]);
+                      }
                     }
                   });
                   setIsSubmitted(true);

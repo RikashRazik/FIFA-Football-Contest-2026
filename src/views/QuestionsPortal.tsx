@@ -24,6 +24,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [endTime, setEndTime] = useState('');
   const [options, setOptions] = useState<string[]>(['', '', '']);
+  const [isManualInput, setIsManualInput] = useState(false);
+  const [manualInputCount, setManualInputCount] = useState(1);
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
 
   const formatEndTime = (endTimeString: string) => {
@@ -75,9 +77,11 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       type, 
       points, 
       date, 
-      status: getInitialQuestionStatus(date)
+      status: getInitialQuestionStatus(date),
+      isManualInput,
+      manualInputCount: isManualInput ? manualInputCount : undefined
     };
-    if (validOptions.length > 0) newQ.options = validOptions;
+    if (!isManualInput && validOptions.length > 0) newQ.options = validOptions;
     if (endTime) newQ.endTime = endTime;
 
     addQuestion(newQ);
@@ -85,6 +89,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     setText('');
     setOptions(['', '', '']);
     setEndTime('');
+    setIsManualInput(false);
+    setManualInputCount(1);
     setIsAddModalOpen(false);
   };
 
@@ -153,6 +159,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     const [editOptions, setEditOptions] = useState<string[]>(q.options || []);
     const [editEndTime, setEditEndTime] = useState(q.endTime || '');
     const [editCorrectAnswer, setEditCorrectAnswer] = useState(q.correctAnswer || '');
+    const [editManualInputCount, setEditManualInputCount] = useState(q.manualInputCount || 1);
 
     const handleSave = () => {
       const formattedText = formatQuestionText(editText);
@@ -162,8 +169,12 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
         text: formattedText
       };
       
-      if (validOptions.length > 0) {
+      if (!q.isManualInput && validOptions.length > 0) {
         updatedFields.options = validOptions;
+      }
+
+      if (q.isManualInput) {
+        updatedFields.manualInputCount = editManualInputCount;
       }
       
       if (editEndTime) {
@@ -214,35 +225,51 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                 className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               />
             </div>
+
+            {q.isManualInput && (
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Boxes Count:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={editManualInputCount}
+                  onChange={(e) => setEditManualInputCount(parseInt(e.target.value) || 1)}
+                  className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                />
+              </div>
+            )}
             
-            <div className="space-y-3">
-              {editOptions.map((opt, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
-                    {String.fromCharCode(65 + i)}
-                  </span>
-                  <input 
-                    type="text" 
-                    value={opt}
-                    onChange={(e) => handleEditOptionChange(i, e.target.value)}
-                    className="flex-1 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                    placeholder={`Option ${i + 1}`}
-                  />
-                  <button 
-                    onClick={() => removeEditOption(i)}
-                    className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              <button 
-                onClick={addEditOption}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" /> Add Option
-              </button>
-            </div>
+            {!q.isManualInput && (
+              <div className="space-y-3">
+                {editOptions.map((opt, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
+                      {String.fromCharCode(65 + i)}
+                    </span>
+                    <input 
+                      type="text" 
+                      value={opt}
+                      onChange={(e) => handleEditOptionChange(i, e.target.value)}
+                      className="flex-1 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                      placeholder={`Option ${i + 1}`}
+                    />
+                    <button 
+                      onClick={() => removeEditOption(i)}
+                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <button 
+                  onClick={addEditOption}
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" /> Add Option
+                </button>
+              </div>
+            )}
 
             {getDynamicQuestionStatus(q) === 'past' && (
               <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-indigo-100">
@@ -500,38 +527,67 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                     placeholder="E.g., Which stadium will host the opening match?"
                   />
                   
-                  <div className="space-y-2">
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700">Answer Options</label>
-                    {options.map((opt, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0">
-                          {String.fromCharCode(65 + index)}
-                        </span>
-                        <input 
-                          type="text"
-                          value={opt}
-                          onChange={(e) => handleOptionChange(index, e.target.value)}
-                          placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                          className="flex-1 px-3 py-1.5 sm:py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => removeOptionField(index)}
-                          disabled={options.length <= 2}
-                          className="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={addOptionField}
-                      className="text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-1"
-                    >
-                      <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Option
-                    </button>
+                  <div className="flex items-center gap-2 mb-3">
+                    <input 
+                      type="checkbox"
+                      id="manualInput"
+                      checked={isManualInput}
+                      onChange={(e) => setIsManualInput(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                    />
+                    <label htmlFor="manualInput" className="text-sm font-medium text-slate-700 cursor-pointer">
+                      Need empty boxes (Users type answer manually)
+                    </label>
                   </div>
+                  
+                  {isManualInput && (
+                    <div className="flex items-center gap-3 mb-3">
+                      <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Boxes Count:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={manualInputCount}
+                        onChange={(e) => setManualInputCount(parseInt(e.target.value) || 1)}
+                        className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                      />
+                    </div>
+                  )}
+                  
+                  {!isManualInput && (
+                    <div className="space-y-2">
+                      <label className="block text-xs sm:text-sm font-medium text-slate-700">Answer Options</label>
+                      {options.map((opt, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0">
+                            {String.fromCharCode(65 + index)}
+                          </span>
+                          <input 
+                            type="text"
+                            value={opt}
+                            onChange={(e) => handleOptionChange(index, e.target.value)}
+                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                            className="flex-1 px-3 py-1.5 sm:py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => removeOptionField(index)}
+                            disabled={options.length <= 2}
+                            className="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={addOptionField}
+                        className="text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-1"
+                      >
+                        <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Option
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Type</label>
