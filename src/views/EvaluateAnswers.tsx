@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Question, Participant, Answer } from '../types';
 import { CheckCircle, AlertCircle, ChevronRight, Check, Settings2, Zap } from 'lucide-react';
-import { isQuestionTimedOut } from '../utils';
+import { isQuestionTimedOut, getDynamicQuestionStatus } from '../utils';
 
 interface EvaluateAnswersProps {
   questions: Question[];
@@ -12,7 +12,7 @@ interface EvaluateAnswersProps {
 }
 
 export function EvaluateAnswers({ questions, participants, answers, updateParticipantScore, updateQuestion }: EvaluateAnswersProps) {
-  const evaluableQuestions = questions.filter(q => (q.status === 'active' || q.status === 'past') && !q.isEvaluated && isQuestionTimedOut(q));
+  const evaluableQuestions = questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !q.isEvaluated && isQuestionTimedOut(q));
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);

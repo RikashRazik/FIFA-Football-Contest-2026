@@ -11,7 +11,7 @@ import { PublicQuestionsView } from './views/PublicQuestionsView';
 import { PublicLeaderboardView } from './views/PublicLeaderboardView';
 import { LoginView } from './views/LoginView';
 import { useAppStore } from './hooks/useAppStore';
-import { isQuestionTimedOut } from './utils';
+import { isQuestionTimedOut, getDynamicQuestionStatus } from './utils';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -57,8 +57,8 @@ export default function App() {
     return <LoginView onLogin={handleLogin} />;
   }
 
-  const evaluateCount = store.questions.filter(q => (q.status === 'active' || q.status === 'past') && !q.isEvaluated && isQuestionTimedOut(q)).length;
-  const activeCount = store.questions.filter(q => q.status === 'active' && !isQuestionTimedOut(q)).length;
+  const evaluateCount = store.questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !q.isEvaluated && isQuestionTimedOut(q)).length;
+  const activeCount = store.questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !isQuestionTimedOut(q)).length;
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">

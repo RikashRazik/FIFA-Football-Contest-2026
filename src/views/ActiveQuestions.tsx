@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Question, Participant, Answer } from '../types';
 import { Clock, Users, Activity, Trash2 } from 'lucide-react';
-import { isQuestionTimedOut } from '../utils';
+import { isQuestionTimedOut, getDynamicQuestionStatus } from '../utils';
 
 const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, date }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -64,7 +64,7 @@ export function ActiveQuestions({ questions, participants, answers, deletePartic
   const [submissionToDelete, setSubmissionToDelete] = useState<{participantId: string, answers: Answer[]} | null>(null);
 
   const activeQuestions = useMemo(() => {
-    return questions.filter(q => q.status === 'active' && !isQuestionTimedOut(q));
+    return questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !isQuestionTimedOut(q));
   }, [questions]);
 
   const submissions = useMemo(() => {

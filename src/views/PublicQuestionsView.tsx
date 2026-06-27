@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Question } from '../types';
 import { Clock } from 'lucide-react';
 
@@ -330,17 +331,34 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
       </div>
 
       {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-[#0f172a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300 border border-emerald-500/30">
-            <div className="p-8 text-center bg-gradient-to-b from-emerald-900/20 to-transparent">
-              <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-                <svg className="w-10 h-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-3xl font-bold text-emerald-400 mb-3 tracking-tight">Success!</h3>
-              <p className="text-emerald-100/80 mb-8 text-lg">Your responses have been recorded, <span className="font-bold text-white">{loggedInParticipant?.name}</span>. Best of luck!</p>
+      <AnimatePresence>
+        {showSuccessModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-[#0f172a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-emerald-500/30"
+            >
+              <div className="p-8 text-center bg-gradient-to-b from-emerald-900/20 to-transparent">
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", damping: 12, stiffness: 200, delay: 0.1 }}
+                  className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.2)]"
+                >
+                  <svg className="w-10 h-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                </motion.div>
+                <h3 className="text-3xl font-bold text-emerald-400 mb-3 tracking-tight">Success!</h3>
+                <p className="text-emerald-100/80 mb-8 text-lg">Your responses have been recorded, <span className="font-bold text-white">{loggedInParticipant?.name}</span>. Best of luck!</p>
               
               <button
                 onClick={() => {
@@ -389,9 +407,10 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                 Close
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

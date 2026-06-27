@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Question, QuestionType, Participant, Answer } from '../types';
 import { Plus, CheckCircle2, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Save, X, Link as LinkIcon, Users } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { getDynamicQuestionStatus } from '../utils';
 
 interface QuestionsPortalProps {
   questions: Question[];
@@ -39,11 +41,10 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     }
   };
 
-  const getQuestionStatus = (dateString: string): 'active' | 'past' | 'upcoming' => {
+  const getInitialQuestionStatus = (dateString: string): 'active' | 'past' | 'upcoming' => {
     const today = new Date().toISOString().split('T')[0];
-    if (dateString < today) return 'past';
-    if (dateString === today) return 'active';
-    return 'upcoming';
+    if (dateString > today) return 'upcoming';
+    return 'active';
   };
 
   const formatQuestionText = (rawText: string) => {
@@ -73,7 +74,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       type, 
       points, 
       date, 
-      status: getQuestionStatus(date)
+      status: getInitialQuestionStatus(date)
     };
     if (validOptions.length > 0) newQ.options = validOptions;
     if (endTime) newQ.endTime = endTime;
@@ -112,9 +113,9 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   const bonusQuestions = questions.filter(q => q.type === 'bonus');
   const bumperQuestions = questions.filter(q => q.type === 'bumper');
 
-  const activeQuestions = dailyQuestions.filter(q => getQuestionStatus(q.date) === 'active');
-  const pastQuestions = dailyQuestions.filter(q => getQuestionStatus(q.date) === 'past');
-  const upcomingQuestions = dailyQuestions.filter(q => getQuestionStatus(q.date) === 'upcoming');
+  const activeQuestions = dailyQuestions.filter(q => getDynamicQuestionStatus(q) === 'active');
+  const pastQuestions = dailyQuestions.filter(q => getDynamicQuestionStatus(q) === 'past');
+  const upcomingQuestions = dailyQuestions.filter(q => getDynamicQuestionStatus(q) === 'upcoming');
 
   const SectionAccordion: React.FC<{ title: React.ReactNode; children: React.ReactNode; defaultExpanded?: boolean; count: number }> = ({ title, children, defaultExpanded = false, count }) => {
     const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -254,7 +255,13 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     }
 
     return (
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-3 group relative hover:border-slate-300 transition-colors">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+        className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-3 group relative hover:border-slate-300 transition-colors"
+      >
         <div className="flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
@@ -325,7 +332,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
-      </div>
+      </motion.div>
     );
   };
 
@@ -577,7 +584,9 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                         </span>
                       </h4>
                       <div className="space-y-3">
-                        {dayQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
+                        <AnimatePresence>
+                          {dayQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
+                        </AnimatePresence>
                       </div>
                     </div>
                   );
@@ -599,7 +608,9 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             <p className="text-slate-500 italic">No active questions currently.</p>
           ) : (
             <div className="space-y-3">
-              {activeQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
+              <AnimatePresence>
+                {activeQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
+              </AnimatePresence>
             </div>
           )}
         </div>
