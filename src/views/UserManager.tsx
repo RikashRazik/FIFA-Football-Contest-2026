@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Participant } from '../types';
-import { Search, Plus, Minus, UserPlus, Edit2, Check, X, Trash2, Users, MoreVertical } from 'lucide-react';
+import { Search, Plus, Minus, UserPlus, Edit2, Check, X, Trash2, Users, MoreVertical, Download } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { ExportModal } from '../components/ExportModal';
 import { toast } from 'react-hot-toast';
 
 interface UserManagerProps {
@@ -35,6 +36,7 @@ export function UserManager({
   const [dayToDelete, setDayToDelete] = useState<{ userId: string, dayIndex: number } | null>(null);
 
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [generatedUserId, setGeneratedUserId] = useState<string | null>(null);
 
   const filtered = participants.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -128,13 +130,20 @@ export function UserManager({
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        <button 
+          onClick={() => setIsExportModalOpen(true)}
+          className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 px-4 py-2.5 rounded-lg transition-all shadow-sm flex items-center gap-2 font-medium text-sm"
+          title="Export Users"
+        >
+          <Download className="w-4 h-4" /> Export
+        </button>
         <button 
           onClick={() => setIsAddUserModalOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-lg transition-colors shadow-sm flex items-center justify-center"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 font-medium text-sm"
           title="Add New Participant"
         >
-          <UserPlus className="w-5 h-5" />
+          <UserPlus className="w-4 h-4" /> Add Participant
         </button>
       </div>
 
@@ -434,6 +443,12 @@ export function UserManager({
           </div>
         </div>
       )}
+      {/* Export Modal */}
+      <ExportModal 
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        participants={participants}
+      />
     </div>
   );
 }
