@@ -21,6 +21,33 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
   const [evaluationMode, setEvaluationMode] = useState<'auto' | 'manual'>('auto');
   const [manualCorrectAnswer, setManualCorrectAnswer] = useState('');
   const [participantPoints, setParticipantPoints] = useState<Record<string, number>>({});
+  const [showBulkPaste, setShowBulkPaste] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkFeedback, setBulkFeedback] = useState('');
+
+  const handleParseBulk = () => {
+    if (!bulkText.trim()) return;
+    const lines = bulkText.split('\n');
+    let matchedCount = 0;
+    const newPoints = { ...participantPoints };
+    
+    for (const line of lines) {
+        if (!line.trim()) continue;
+        const cleanLine = line.replace(/^\d+[\.\)]?\s*/, '').trim();
+        const numMatch = cleanLine.match(/\d+$/);
+        if (numMatch) {
+            const score = parseInt(numMatch[0], 10);
+            let namePart = cleanLine.substring(0, numMatch.index).replace(/[-\.:\s]+$/, '').trim();
+            const participant = participants.find(p => p.name.toLowerCase() === namePart.toLowerCase() || p.name.toLowerCase().includes(namePart.toLowerCase()) || namePart.toLowerCase().includes(p.name.toLowerCase()));
+            if (participant) {
+                newPoints[participant.id] = score;
+                matchedCount++;
+            }
+        }
+    }
+    setParticipantPoints(newPoints);
+    setBulkFeedback(`Successfully matched ${matchedCount} participants! Please review the preview below before finalizing.`);
+  };
 
   // When a question is selected
   const handleSelectQuestion = (q: Question) => {
@@ -29,6 +56,9 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
       setSelectedAnswer(null);
       setManualCorrectAnswer('');
       setParticipantPoints({});
+      setBulkText('');
+      setBulkFeedback('');
+      setShowBulkPaste(false);
       return;
     }
     
@@ -36,6 +66,9 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     setSelectedAnswer(null);
     setManualCorrectAnswer('');
     setParticipantPoints({});
+    setBulkText('');
+    setBulkFeedback('');
+    setShowBulkPaste(false);
     if (!q.options || q.options.length === 0) {
       setEvaluationMode('manual');
     } else {
@@ -96,6 +129,9 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
       setSelectedAnswer(null);
       setManualCorrectAnswer('');
       setParticipantPoints({});
+      setBulkText('');
+      setBulkFeedback('');
+      setShowBulkPaste(false);
     } catch (error) {
       console.error("Error updating leaderboard", error);
     } finally {
@@ -315,12 +351,47 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                     </div>
 
                     <div className="border-t border-slate-100 pt-6">
-                      <h4 className="font-semibold text-slate-800 mb-4 flex items-center justify-between">
-                        <span>Participant Responses</span>
-                        <span className="text-sm font-normal text-slate-500">
-                          {answers.filter(a => a.questionId === selectedQuestion.id).length} answer(s)
-                        </span>
-                      </h4>
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                        <h4 className="font-semibold text-slate-800 flex items-center gap-2">
+                          <span>Participant Responses</span>
+                          <span className="text-sm font-normal text-slate-500">
+                            {answers.filter(a => a.questionId === selectedQuestion.id).length} answer(s)
+                          </span>
+                        </h4>
+                        <button
+                          onClick={() => setShowBulkPaste(!showBulkPaste)}
+                          className={`text-sm px-3 py-1.5 rounded-lg border font-medium transition-colors ${showBulkPaste ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                        >
+                          {showBulkPaste ? 'Hide Bulk Paste' : 'Bulk Paste Marks'}
+                        </button>
+                      </div>
+
+                      {showBulkPaste && (
+                        <div className="mb-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 animate-in fade-in slide-in-from-top-2">
+                          <label className="block text-sm font-semibold text-indigo-900 mb-2">Paste Marks</label>
+                          <p className="text-xs text-indigo-700/70 mb-3">Format: Name followed by points (e.g. "1. John Doe - 2"). The system will extract the name and the last number on each line.</p>
+                          <textarea
+                            value={bulkText}
+                            onChange={(e) => setBulkText(e.target.value)}
+                            placeholder="1. Shani - 1&#10;2. Shemeed - 2&#10;3. Askar - 2"
+                            className="w-full h-32 px-3 py-2 rounded-lg border border-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-mono mb-3"
+                          />
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={handleParseBulk}
+                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+                            >
+                              Parse & Apply
+                            </button>
+                            {bulkFeedback && (
+                              <span className="text-sm font-medium text-emerald-600 flex items-center gap-1.5">
+                                <CheckCircle className="w-4 h-4" />
+                                {bulkFeedback}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="bg-slate-50 rounded-xl border border-slate-200 p-2 max-h-[400px] overflow-y-auto">
                         <ul className="space-y-2">
