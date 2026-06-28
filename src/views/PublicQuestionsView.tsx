@@ -212,7 +212,7 @@ export function PublicQuestionsView({
             </h1>
             <div className="inline-block bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 border border-blue-500 rounded-full px-6 py-1.5 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
               <span className="text-lg font-bold text-yellow-400 tracking-wider">
-                DAY {getDayNumber(date)}
+                {highlightedQuestionId ? '🎯 FEATURED PREDICTION' : isActiveView ? 'ACTIVE QUESTIONS' : `DAY ${getDayNumber(date)}`}
               </span>
             </div>
           </div>
@@ -507,7 +507,23 @@ export function PublicQuestionsView({
               <button 
                 onClick={() => {
                   setError('');
-                  if (Object.keys(selectedOptions).length !== questions.filter(q => !isQuestionTimedOut(q)).length) {
+                  
+                  const activeQs = questions.filter(q => !isQuestionTimedOut(q));
+                  const unansweredActiveQs = activeQs.filter(q => {
+                    const val = selectedOptions[q.id];
+                    if (val === undefined || val === null) return true;
+                    if (typeof val === 'string' && val.trim() === '') return true;
+                    if (Array.isArray(val)) {
+                      const validSelections = val.filter(item => {
+                        if (typeof item === 'string') return item.trim() !== '';
+                        return item !== undefined && item !== null;
+                      });
+                      return validSelections.length === 0;
+                    }
+                    return false;
+                  });
+
+                  if (unansweredActiveQs.length > 0) {
                     setError('Please answer all available questions before submitting.');
                     return;
                   }
