@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Question, Participant, Answer } from '../types';
-import { Clock, Users, Activity, Trash2 } from 'lucide-react';
+import { Clock, Users, Activity, Trash2, Link as LinkIcon, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from '../utils';
 
@@ -64,6 +64,34 @@ interface ActiveQuestionsProps {
 export function ActiveQuestions({ questions, participants, answers, deleteParticipantAnswers }: ActiveQuestionsProps) {
   const [submissionToDelete, setSubmissionToDelete] = useState<{participantId: string, answers: Answer[]} | null>(null);
 
+  const ShareLinkButton: React.FC<{ isActive?: boolean }> = ({ isActive }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyLink = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const url = new URL(window.location.href);
+      if (isActive) {
+        url.searchParams.set('active', 'true');
+        url.searchParams.delete('date');
+      }
+      navigator.clipboard.writeText(url.toString());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success('Public link copied to clipboard!');
+    };
+
+    return (
+      <button
+        onClick={handleCopyLink}
+        className="flex items-center gap-1.5 text-sm font-medium bg-white text-indigo-600 px-4 py-2 rounded-xl border border-indigo-200 shadow-sm hover:bg-indigo-50 hover:border-indigo-300 transition-all active:scale-95"
+        title="Copy public link for active questions"
+      >
+        {copied ? <CheckCircle2 className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+        {copied ? 'Copied!' : 'Copy Public Link'}
+      </button>
+    );
+  };
+
   const activeQuestions = useMemo(() => {
     return questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !isQuestionTimedOut(q));
   }, [questions]);
@@ -115,10 +143,20 @@ export function ActiveQuestions({ questions, participants, answers, deletePartic
       const ans = subAnswers.find(a => a.questionId === q.id);
       if (!ans) return null;
       
-      const optIndex = q.options?.findIndex(opt => opt === ans.answer) ?? -1;
-      const letter = optIndex >= 0 ? String.fromCharCode(65 + optIndex) : '?';
+      let formattedAns = '?';
+      if (q.type === 'multiple_choice') {
+        const parts = ans.answer.split(' | ');
+        const indices = parts.map(part => {
+          const idx = q.options?.indexOf(part);
+          return idx !== undefined && idx !== -1 ? `${idx + 1}` : '?';
+        });
+        formattedAns = indices.join(',');
+      } else {
+        const optIndex = q.options?.findIndex(opt => opt === ans.answer) ?? -1;
+        formattedAns = optIndex >= 0 ? String.fromCharCode(65 + optIndex) : '?';
+      }
       
-      return `${index + 1}.${letter}`;
+      return `${index + 1}.${formattedAns}`;
     }).filter(Boolean).join(', ');
   };
 
@@ -129,6 +167,9 @@ export function ActiveQuestions({ questions, participants, answers, deletePartic
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Active Questions</h2>
           <p className="text-slate-500 mt-1">Monitor real-time participant responses</p>
         </div>
+        {activeQuestions.length > 0 && (
+          <ShareLinkButton isActive={true} />
+        )}
       </div>
 
       {activeQuestions.length === 0 ? (

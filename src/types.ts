@@ -1,4 +1,4 @@
-export type QuestionType = 'daily' | 'bonus' | 'bumper';
+export type QuestionType = 'daily' | 'bonus' | 'bumper' | 'special' | 'multiple_choice';
 
 export interface Question {
   id: string;
@@ -13,6 +13,8 @@ export interface Question {
   correctAnswer?: string;
   isManualInput?: boolean;
   manualInputCount?: number;
+  maxSelections?: number;
+  isActivatedNow?: boolean;
 }
 
 export interface Participant {

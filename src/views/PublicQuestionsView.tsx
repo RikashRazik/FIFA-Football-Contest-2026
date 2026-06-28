@@ -60,9 +60,10 @@ interface PublicQuestionsViewProps {
   participants: import('../types').Participant[];
   answers: import('../types').Answer[];
   addAnswer: (questionId: string, participantId: string, answer: string) => void;
+  isActiveView?: boolean;
 }
 
-export function PublicQuestionsView({ date, questions, participants, answers, addAnswer }: PublicQuestionsViewProps) {
+export function PublicQuestionsView({ date, questions, participants, answers, addAnswer, isActiveView }: PublicQuestionsViewProps) {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, number | string | string[]>>({});
   const [uniqueId, setUniqueId] = useState('');
   const [error, setError] = useState('');
@@ -118,6 +119,14 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
             } else {
               newSelectedOptions[q.id] = ans.answer;
             }
+          } else if (q.type === 'multiple_choice' && q.options) {
+            const selectedTexts = ans.answer.split(' | ');
+            const indices: number[] = [];
+            selectedTexts.forEach(text => {
+              const idx = q.options!.indexOf(text);
+              if (idx !== -1) indices.push(idx);
+            });
+            newSelectedOptions[q.id] = indices;
           } else if (q.options) {
             const idx = q.options.indexOf(ans.answer);
             if (idx !== -1) {
@@ -194,8 +203,8 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
   let globalEndTime = null;
   if (activeQuestionsWithTime.length > 0) {
     globalEndTime = activeQuestionsWithTime.sort((a, b) => {
-      const timeA = new Date(`${a.date}T${a.endTime!.length === 5 ? a.endTime + ':00' : a.endTime}`).getTime();
-      const timeB = new Date(`${b.date}T${b.endTime!.length === 5 ? b.endTime + ':00' : b.endTime}`).getTime();
+      const timeA = new Date(a.endTime!.includes('T') ? a.endTime! : `${a.date}T${a.endTime!.length === 5 ? a.endTime + ':00' : a.endTime}`).getTime();
+      const timeB = new Date(b.endTime!.includes('T') ? b.endTime! : `${b.date}T${b.endTime!.length === 5 ? b.endTime + ':00' : b.endTime}`).getTime();
       return timeA - timeB;
     })[0];
   }
@@ -218,7 +227,7 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
           </h1>
           <div className="inline-block bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 border border-blue-500 rounded-full px-8 py-2 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
             <span className="text-xl font-bold text-yellow-400 tracking-wider">
-              DAY {getDayNumber(date)} QUESTIONS
+              {isActiveView ? 'ACTIVE QUESTIONS' : `DAY ${getDayNumber(date)} QUESTIONS`}
             </span>
           </div>
           <div className="flex flex-col items-center justify-center gap-2 mt-4">
@@ -297,11 +306,35 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                   q.options && q.options.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
                       {q.options.map((opt, i) => {
-                        const isSelected = selectedOptions[q.id] === i;
+                        const isMultipleChoice = q.type === 'multiple_choice';
+                        const currentSelection = selectedOptions[q.id];
+                        let isSelected = false;
+                        
+                        if (isMultipleChoice) {
+                          isSelected = Array.isArray(currentSelection) && currentSelection.includes(i);
+                        } else {
+                          isSelected = currentSelection === i;
+                        }
+                        
                         return (
                           <button
                             key={i}
-                            onClick={() => handleOptionSelect(q.id, i)}
+                            onClick={() => {
+                              if (isMultipleChoice) {
+                                const currentArr = Array.isArray(currentSelection) ? [...currentSelection as number[]] : [];
+                                const maxSelections = q.maxSelections || 2;
+                                
+                                if (currentArr.includes(i)) {
+                                  // Deselect
+                                  handleOptionSelect(q.id, currentArr.filter(idx => idx !== i));
+                                } else if (currentArr.length < maxSelections) {
+                                  // Select
+                                  handleOptionSelect(q.id, [...currentArr, i]);
+                                }
+                              } else {
+                                handleOptionSelect(q.id, i);
+                              }
+                            }}
                             disabled={isSubmitted || isQuestionTimedOut(q)}
                             className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed ${
                               isSelected 
@@ -314,7 +347,7 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                                 ? 'bg-blue-500 text-white'
                                 : 'bg-slate-700 text-slate-300'
                             }`}>
-                              {String.fromCharCode(65 + i)}
+                              {q.type === 'multiple_choice' ? i + 1 : String.fromCharCode(65 + i)}
                             </span>
                             <span className={`font-medium ${isSelected ? 'text-white' : 'text-slate-300'}`}>
                               {opt}
@@ -365,6 +398,10 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                     if (question && loggedInParticipant) {
                       if (question.isManualInput) {
                         const valString = Array.isArray(optValue) ? optValue.filter(Boolean).join(' | ') : String(optValue);
+                        addAnswer(qId, loggedInParticipant.id, valString);
+                      } else if (question.type === 'multiple_choice' && question.options) {
+                        const indices = Array.isArray(optValue) ? optValue as number[] : [optValue as number];
+                        const valString = indices.map(idx => question.options![idx]).join(' | ');
                         addAnswer(qId, loggedInParticipant.id, valString);
                       } else if (question.options) {
                         const optionIndex = optValue as number;
@@ -420,27 +457,34 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                   let message = `*SFWC 26 Day ${getDayNumber(date)} - ${loggedInParticipant?.name}*\r\n\r\n`;
               
                   questions.forEach((q, qIndex) => {
-                    let selectedOptionText = '';
-                    let optionLetter = '';
-                    
                     const participantAnswers = answers.filter(a => a.participantId === loggedInParticipant?.id);
-                    const answerForQ = participantAnswers.find(a => a.questionId === q.id)?.answer;
+                    let answerForQ = participantAnswers.find(a => a.questionId === q.id)?.answer;
                     
-                    if (answerForQ && q.options) {
-                       const optIndex = q.options.indexOf(answerForQ);
-                       if (optIndex !== -1) {
-                         selectedOptionText = q.options[optIndex];
-                         optionLetter = String.fromCharCode(65 + optIndex);
-                       }
-                    } else {
-                       const optionIndex = selectedOptions[q.id];
-                       if (optionIndex !== undefined && q.options) {
-                         selectedOptionText = q.options[optionIndex];
-                         optionLetter = String.fromCharCode(65 + optionIndex);
-                       }
+                    if (!answerForQ) {
+                      const selectedOpt = selectedOptions[q.id];
+                      if (q.isManualInput) {
+                        answerForQ = Array.isArray(selectedOpt) ? selectedOpt.filter(Boolean).join(' | ') : String(selectedOpt || '');
+                      } else if (q.type === 'multiple_choice' && q.options && selectedOpt !== undefined) {
+                        const indices = Array.isArray(selectedOpt) ? selectedOpt as number[] : [selectedOpt as number];
+                        answerForQ = indices.map(idx => q.options![idx]).join(' | ');
+                      } else if (q.options && selectedOpt !== undefined) {
+                        answerForQ = q.options[selectedOpt as number];
+                      }
                     }
-                    
-                    message += `*Q${qIndex + 1}* - Option ${optionLetter} - ${selectedOptionText}\r\n`;
+
+                    if (q.isManualInput || q.type === 'multiple_choice') {
+                      message += `*Q${qIndex + 1}* - ${answerForQ || 'No Answer'}\r\n`;
+                    } else if (answerForQ && q.options) {
+                      const optIndex = q.options.indexOf(answerForQ);
+                      if (optIndex !== -1) {
+                        const optionLetter = String.fromCharCode(65 + optIndex);
+                        message += `*Q${qIndex + 1}* - Option ${optionLetter} - ${answerForQ}\r\n`;
+                      } else {
+                        message += `*Q${qIndex + 1}* - ${answerForQ}\r\n`;
+                      }
+                    } else {
+                      message += `*Q${qIndex + 1}* - No Answer\r\n`;
+                    }
                   });
               
                   const encodedMessage = encodeURIComponent(message.trim());

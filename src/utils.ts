@@ -22,7 +22,7 @@ export const isQuestionTimedOut = (q: Question) => {
   if (!q.endTime) return false;
   
   try {
-    const endDateTime = new Date(`${q.date}T${q.endTime}`);
+    const endDateTime = new Date(q.endTime.includes('T') ? q.endTime : `${q.date}T${q.endTime}`);
     if (isNaN(endDateTime.getTime())) return false;
     return new Date() > endDateTime;
   } catch {
@@ -32,6 +32,7 @@ export const isQuestionTimedOut = (q: Question) => {
 
 export const getDynamicQuestionStatus = (q: Question): 'upcoming' | 'active' | 'past' => {
   if (q.status === 'past' || q.isEvaluated) return 'past';
+  if (q.isActivatedNow) return 'active';
   
   const today = new Date().toISOString().split('T')[0];
   

@@ -16,6 +16,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
   const evaluableQuestions = questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !q.isEvaluated && isQuestionTimedOut(q));
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [selectedMultipleAnswers, setSelectedMultipleAnswers] = useState<string[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Manual evaluation state
@@ -56,6 +57,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     if (selectedQuestion?.id === q.id) {
       setSelectedQuestion(null);
       setSelectedAnswer(null);
+      setSelectedMultipleAnswers([]);
       setManualCorrectAnswer('');
       setParticipantPoints({});
       setBulkText('');
@@ -66,6 +68,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     
     setSelectedQuestion(q);
     setSelectedAnswer(null);
+    setSelectedMultipleAnswers([]);
     setManualCorrectAnswer('');
     setParticipantPoints({});
     setBulkText('');
@@ -87,18 +90,41 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     matchingAnswers.some(a => a.participantId === p.id)
   );
 
+  // Multiple Choice matching logic
+  const multipleChoiceScores: Record<string, number> = {};
+  if (selectedQuestion?.type === 'multiple_choice') {
+    participants.forEach(p => {
+      const pAnswer = answers.find(a => a.questionId === selectedQuestion.id && a.participantId === p.id);
+      if (pAnswer) {
+        const pChoices = pAnswer.answer.split(' | ');
+        let score = 0;
+        pChoices.forEach(choice => {
+          if (selectedMultipleAnswers.includes(choice)) {
+            score += 1;
+          }
+        });
+        if (score > 0) {
+          multipleChoiceScores[p.id] = score;
+        }
+      }
+    });
+  }
+
   const handleUpdateLeaderboard = async () => {
     if (!selectedQuestion || isUpdating) return;
-    if (evaluationMode === 'auto' && !selectedAnswer) return;
+    if (evaluationMode === 'auto' && selectedQuestion.type !== 'multiple_choice' && !selectedAnswer) return;
+    if (evaluationMode === 'auto' && selectedQuestion.type === 'multiple_choice' && selectedMultipleAnswers.length === 0) return;
     setIsUpdating(true);
     
     try {
       // Map question type to points category
-      const categoryMap = {
+      const categoryMap: Record<string, 'dailyPoints' | 'bonusPoints' | 'bumperPoints'> = {
         'daily': 'dailyPoints',
         'bonus': 'bonusPoints',
-        'bumper': 'bumperPoints'
-      } as const;
+        'bumper': 'bumperPoints',
+        'special': 'bonusPoints',
+        'multiple_choice': 'bonusPoints'
+      };
       
       const category = categoryMap[selectedQuestion.type];
       
@@ -110,15 +136,26 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
       const dayIdx = getDayIndex(selectedQuestion.date);
       
       if (evaluationMode === 'auto') {
-        // Update score for each matched participant
-        for (const p of matchedParticipants) {
-          await updateParticipantScore(p.id, category, selectedQuestion.points, dayIdx);
+        if (selectedQuestion.type === 'multiple_choice') {
+          for (const [pId, score] of Object.entries(multipleChoiceScores)) {
+            await updateParticipantScore(pId, category, score, dayIdx);
+          }
+          await updateQuestion(selectedQuestion.id, { 
+            status: 'past', 
+            isEvaluated: true,
+            correctAnswer: selectedMultipleAnswers.join(' | ')
+          });
+        } else {
+          // Update score for each matched participant
+          for (const p of matchedParticipants) {
+            await updateParticipantScore(p.id, category, selectedQuestion.points, dayIdx);
+          }
+          await updateQuestion(selectedQuestion.id, { 
+            status: 'past', 
+            isEvaluated: true,
+            correctAnswer: selectedAnswer 
+          });
         }
-        await updateQuestion(selectedQuestion.id, { 
-          status: 'past', 
-          isEvaluated: true,
-          correctAnswer: selectedAnswer 
-        });
       } else {
         // Manual mode
         for (const [pId, pts] of Object.entries(participantPoints)) {
@@ -126,11 +163,14 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
             await updateParticipantScore(pId, category, Number(pts), dayIdx);
           }
         }
-        await updateQuestion(selectedQuestion.id, { 
+        const updateData: any = { 
           status: 'past', 
-          isEvaluated: true,
-          correctAnswer: manualCorrectAnswer || undefined
-        });
+          isEvaluated: true
+        };
+        if (manualCorrectAnswer) {
+          updateData.correctAnswer = manualCorrectAnswer;
+        }
+        await updateQuestion(selectedQuestion.id, updateData);
       }
       
       // Reset state
@@ -156,11 +196,19 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
 
     let answerToSave = '';
     if (evaluationMode === 'auto') {
-      if (!selectedAnswer) {
-        alert("Please select a correct answer to save before skipping evaluation.");
-        return;
+      if (selectedQuestion.type === 'multiple_choice') {
+        if (selectedMultipleAnswers.length === 0) {
+          alert("Please select at least one correct answer to save before skipping evaluation.");
+          return;
+        }
+        answerToSave = selectedMultipleAnswers.join(' | ');
+      } else {
+        if (!selectedAnswer) {
+          alert("Please select a correct answer to save before skipping evaluation.");
+          return;
+        }
+        answerToSave = selectedAnswer;
       }
-      answerToSave = selectedAnswer;
     } else {
       if (!manualCorrectAnswer) {
         alert("Please provide or select a correct answer to save before skipping evaluation.");
@@ -301,25 +349,39 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
 
                 {evaluationMode === 'auto' ? (
                   <>
-                    <h4 className="font-semibold text-slate-800 mb-4">1. Select Correct Answer</h4>
+                    <h4 className="font-semibold text-slate-800 mb-4">1. Select Correct Answer{selectedQuestion.type === 'multiple_choice' ? 's' : ''}</h4>
                     {selectedQuestion.options && selectedQuestion.options.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-                        {selectedQuestion.options.map((opt, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setSelectedAnswer(prev => prev === opt ? null : opt)}
-                            className={`p-4 rounded-xl border-2 text-left transition-all ${
-                              selectedAnswer === opt 
-                                ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm' 
-                                : 'border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{opt}</span>
-                              {selectedAnswer === opt && <CheckCircle className="w-5 h-5 text-emerald-600" />}
-                            </div>
-                          </button>
-                        ))}
+                        {selectedQuestion.options.map((opt, i) => {
+                          const isSelected = selectedQuestion.type === 'multiple_choice' 
+                            ? selectedMultipleAnswers.includes(opt)
+                            : selectedAnswer === opt;
+                            
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                if (selectedQuestion.type === 'multiple_choice') {
+                                  setSelectedMultipleAnswers(prev => 
+                                    prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt]
+                                  );
+                                } else {
+                                  setSelectedAnswer(prev => prev === opt ? null : opt);
+                                }
+                              }}
+                              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                                isSelected 
+                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm' 
+                                  : 'border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{opt}</span>
+                                {isSelected && <CheckCircle className="w-5 h-5 text-emerald-600" />}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="mb-8 p-4 bg-amber-50 rounded-lg flex gap-3 text-amber-800 border border-amber-200">
@@ -328,31 +390,58 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                       </div>
                     )}
 
-                    {selectedAnswer && (
+                    {(selectedQuestion.type === 'multiple_choice' ? selectedMultipleAnswers.length > 0 : selectedAnswer) && (
                       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                         <div className="border-t border-slate-100 pt-6">
                           <h4 className="font-semibold text-slate-800 mb-2 flex items-center justify-between">
                             <span>2. Matched Participants</span>
-                            <span className="text-sm font-normal text-slate-500">
-                              <strong className="text-emerald-600">{matchedParticipants.length}</strong> correct answer(s)
-                            </span>
+                            {selectedQuestion.type !== 'multiple_choice' && (
+                              <span className="text-sm font-normal text-slate-500">
+                                <strong className="text-emerald-600">{matchedParticipants.length}</strong> correct answer(s)
+                              </span>
+                            )}
                           </h4>
                           
-                          {matchedParticipants.length > 0 ? (
-                            <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 max-h-[200px] overflow-y-auto">
-                              <ul className="space-y-2">
-                                {matchedParticipants.map(p => (
-                                  <li key={p.id} className="flex justify-between items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-100">
-                                    <span className="font-medium text-slate-800">{p.name}</span>
-                                    <span className="text-xs font-mono text-slate-400">ID: {p.uniqueId}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
+                          {selectedQuestion.type === 'multiple_choice' ? (
+                            Object.keys(multipleChoiceScores).length > 0 ? (
+                              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 max-h-[200px] overflow-y-auto">
+                                <ul className="space-y-2">
+                                  {Object.entries(multipleChoiceScores).map(([pId, score]) => {
+                                    const p = participants.find(part => part.id === pId);
+                                    return (
+                                      <li key={pId} className="flex justify-between items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-100">
+                                        <div>
+                                          <span className="font-medium text-slate-800">{p?.name || 'Unknown'}</span>
+                                          <span className="ml-2 text-xs font-mono text-slate-400">ID: {p?.uniqueId}</span>
+                                        </div>
+                                        <span className="font-bold text-emerald-600">+{score} pts</span>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            ) : (
+                              <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-8 text-center text-slate-500">
+                                No participants submitted any of the correct answers.
+                              </div>
+                            )
                           ) : (
-                            <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-8 text-center text-slate-500">
-                              No participants submitted the correct answer.
-                            </div>
+                            matchedParticipants.length > 0 ? (
+                              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 max-h-[200px] overflow-y-auto">
+                                <ul className="space-y-2">
+                                  {matchedParticipants.map(p => (
+                                    <li key={p.id} className="flex justify-between items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-100">
+                                      <span className="font-medium text-slate-800">{p.name}</span>
+                                      <span className="text-xs font-mono text-slate-400">ID: {p.uniqueId}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : (
+                              <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-8 text-center text-slate-500">
+                                No participants submitted the correct answer.
+                              </div>
+                            )
                           )}
                         </div>
 
@@ -395,7 +484,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                           >
                             <option value="">Select the correct option...</option>
                             {selectedQuestion.options.map((opt, i) => (
-                              <option key={i} value={opt}>Option {String.fromCharCode(65 + i)} - {opt}</option>
+                              <option key={i} value={opt}>Option {selectedQuestion.type === 'multiple_choice' ? i + 1 : String.fromCharCode(65 + i)} - {opt}</option>
                             ))}
                           </select>
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
@@ -472,9 +561,19 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                                     <div className="text-sm text-slate-600 bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">
                                       {(() => {
                                         if (selectedQuestion.options) {
-                                          const optIndex = selectedQuestion.options.indexOf(ans.answer);
-                                          if (optIndex !== -1) {
-                                            return `Option ${String.fromCharCode(65 + optIndex)} - ${ans.answer}`;
+                                          if (selectedQuestion.type === 'multiple_choice') {
+                                            // Split answers, find indices
+                                            const parts = ans.answer.split(' | ');
+                                            const indices = parts.map(part => {
+                                              const idx = selectedQuestion.options?.indexOf(part);
+                                              return idx !== undefined && idx !== -1 ? `${idx + 1}` : '';
+                                            }).filter(Boolean);
+                                            return indices.length > 0 ? `Option(s) ${indices.join(', ')} - ${ans.answer}` : ans.answer;
+                                          } else {
+                                            const optIndex = selectedQuestion.options.indexOf(ans.answer);
+                                            if (optIndex !== -1) {
+                                              return `Option ${String.fromCharCode(65 + optIndex)} - ${ans.answer}`;
+                                            }
                                           }
                                         }
                                         return ans.answer;

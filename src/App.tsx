@@ -36,6 +36,10 @@ export default function App() {
     return new URLSearchParams(window.location.search).get('date');
   });
   
+  const [isPublicActive, setIsPublicActive] = useState(() => {
+    return new URLSearchParams(window.location.search).get('active') === 'true';
+  });
+  
   const [isPublicLeaderboard, setIsPublicLeaderboard] = useState(() => {
     return new URLSearchParams(window.location.search).get('view') === 'leaderboard';
   });
@@ -59,9 +63,15 @@ export default function App() {
     return <PublicLeaderboardView participants={store.participants} />;
   }
 
+  if (isPublicActive) {
+    const activeQuestions = store.questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !isQuestionTimedOut(q));
+    const todayDate = new Date().toISOString().split('T')[0];
+    return <PublicQuestionsView date={todayDate} questions={activeQuestions} participants={store.participants} answers={store.answers} addAnswer={store.addAnswer} isActiveView={true} />;
+  }
+
   if (publicDate) {
     const dayQuestions = store.questions.filter(q => q.date === publicDate);
-    return <PublicQuestionsView date={publicDate} questions={dayQuestions} participants={store.participants} answers={store.answers} addAnswer={store.addAnswer} />;
+    return <PublicQuestionsView date={publicDate} questions={dayQuestions} participants={store.participants} answers={store.answers} addAnswer={store.addAnswer} isActiveView={false} />;
   }
 
   if (!isAuthenticated) {

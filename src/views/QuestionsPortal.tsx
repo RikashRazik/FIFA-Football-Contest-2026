@@ -26,6 +26,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   const [options, setOptions] = useState<string[]>(['', '', '']);
   const [isManualInput, setIsManualInput] = useState(false);
   const [manualInputCount, setManualInputCount] = useState(1);
+  const [maxSelections, setMaxSelections] = useState(2);
+  const [isActivatedNow, setIsActivatedNow] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
 
   const formatEndTime = (endTimeString: string) => {
@@ -72,16 +74,24 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     const formattedText = formatQuestionText(text);
     const validOptions = options.filter(opt => opt.trim() !== '');
     
+    const newIsManualInput = type === 'special';
+    
     const newQ: any = {
       text: formattedText, 
       type, 
-      points, 
+      points: type === 'multiple_choice' ? maxSelections : points, 
       date, 
-      status: getInitialQuestionStatus(date),
-      isManualInput,
-      manualInputCount: isManualInput ? manualInputCount : undefined
+      status: isActivatedNow ? 'active' : getInitialQuestionStatus(date),
+      isManualInput: newIsManualInput,
+      isActivatedNow
     };
-    if (!isManualInput && validOptions.length > 0) newQ.options = validOptions;
+    if (newIsManualInput) {
+      newQ.manualInputCount = manualInputCount;
+    }
+    if (type === 'multiple_choice') {
+      newQ.maxSelections = maxSelections;
+    }
+    if (!newIsManualInput && validOptions.length > 0) newQ.options = validOptions;
     if (endTime) newQ.endTime = endTime;
 
     addQuestion(newQ);
@@ -90,7 +100,11 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     setOptions(['', '', '']);
     setEndTime('');
     setIsManualInput(false);
+    setType('daily');
+    setPoints(1);
     setManualInputCount(1);
+    setMaxSelections(2);
+    setIsActivatedNow(false);
     setIsAddModalOpen(false);
   };
 
@@ -119,6 +133,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   const dailyQuestions = questions.filter(q => q.type === 'daily');
   const bonusQuestions = questions.filter(q => q.type === 'bonus');
   const bumperQuestions = questions.filter(q => q.type === 'bumper');
+  const specialQuestions = questions.filter(q => q.type === 'special');
+  const multipleChoiceQuestions = questions.filter(q => q.type === 'multiple_choice');
 
   const activeQuestions = dailyQuestions.filter(q => getDynamicQuestionStatus(q) === 'active');
   const pastQuestions = dailyQuestions.filter(q => getDynamicQuestionStatus(q) === 'past');
@@ -160,6 +176,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     const [editEndTime, setEditEndTime] = useState(q.endTime || '');
     const [editCorrectAnswer, setEditCorrectAnswer] = useState(q.correctAnswer || '');
     const [editManualInputCount, setEditManualInputCount] = useState(q.manualInputCount || 1);
+    const [editMaxSelections, setEditMaxSelections] = useState(q.maxSelections || 2);
+    const [editIsActivatedNow, setEditIsActivatedNow] = useState(q.isActivatedNow || false);
 
     const handleSave = () => {
       const formattedText = formatQuestionText(editText);
@@ -177,8 +195,20 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
         updatedFields.manualInputCount = editManualInputCount;
       }
       
+      if (q.type === 'multiple_choice') {
+        updatedFields.maxSelections = editMaxSelections;
+        updatedFields.points = editMaxSelections;
+      }
+      
       if (editEndTime) {
         updatedFields.endTime = editEndTime;
+      }
+
+      if (editIsActivatedNow !== q.isActivatedNow) {
+        updatedFields.isActivatedNow = editIsActivatedNow;
+        if (editIsActivatedNow) {
+          updatedFields.status = 'active';
+        }
       }
 
       if (editCorrectAnswer) {
@@ -217,13 +247,25 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             />
             
             <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-slate-700 w-24 shrink-0">End Time:</label>
+              <label className="text-sm font-medium text-slate-700 w-32 shrink-0">End Date & Time:</label>
               <input
-                type="time"
+                type="datetime-local"
                 value={editEndTime}
                 onChange={(e) => setEditEndTime(e.target.value)}
-                className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all w-full max-w-xs"
               />
+            </div>
+            
+            <div className="flex items-center gap-3 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={editIsActivatedNow}
+                  onChange={(e) => setEditIsActivatedNow(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                Activate Now
+              </label>
             </div>
 
             {q.isManualInput && (
@@ -239,8 +281,22 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                 />
               </div>
             )}
+
+            {q.type === 'multiple_choice' && (
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Max Selections:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={editMaxSelections}
+                  onChange={(e) => setEditMaxSelections(parseInt(e.target.value) || 1)}
+                  className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                />
+              </div>
+            )}
             
-            {!q.isManualInput && (
+            {!q.isManualInput && q.type !== 'multiple_choice' && (
               <div className="space-y-3">
                 {editOptions.map((opt, i) => (
                   <div key={i} className="flex items-center gap-2">
@@ -271,10 +327,41 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
               </div>
             )}
 
+            {q.type === 'multiple_choice' && (
+              <div className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700">Bulk Options (one per line)</label>
+                  <textarea
+                    value={editOptions.join('\n')}
+                    onChange={(e) => setEditOptions(e.target.value.split('\n'))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-y min-h-[120px] text-sm"
+                    placeholder="Option A&#10;Option B&#10;Option C..."
+                  />
+                </div>
+                {editOptions.filter(o => o.trim()).length > 0 && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-700">
+                      Parsed Options Preview ({editOptions.filter(o => o.trim()).length})
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl max-h-48 overflow-y-auto">
+                      {editOptions.filter(o => o.trim()).map((opt, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                          <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                            {i + 1}
+                          </span>
+                          <span className="truncate" title={opt}>{opt}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {getDynamicQuestionStatus(q) === 'past' && (
               <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-indigo-100">
                 <label className="text-sm font-medium text-slate-700">Correct Answer:</label>
-                {editOptions.length > 0 ? (
+                {editOptions.length > 0 && q.type !== 'multiple_choice' ? (
                   <select
                     value={editCorrectAnswer}
                     onChange={(e) => setEditCorrectAnswer(e.target.value)}
@@ -347,7 +434,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                   <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
                     q.correctAnswer === opt ? 'bg-emerald-200 text-emerald-800' : 'bg-indigo-100 text-indigo-700'
                   }`}>
-                    {String.fromCharCode(65 + i)}
+                    {q.type === 'multiple_choice' ? i + 1 : String.fromCharCode(65 + i)}
                   </span>
                   <span className="flex-1 truncate">{opt}</span>
                   {q.correctAnswer === opt && <CheckCircle2 className="w-3.5 h-3.5 ml-auto text-emerald-600 shrink-0" />}
@@ -380,6 +467,18 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
           )}
         </div>
         <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-slate-100">
+          {getDynamicQuestionStatus(q) === 'upcoming' && !q.isActivatedNow && (
+            <button 
+              onClick={() => {
+                updateQuestion(q.id, { isActivatedNow: true, status: 'active' });
+                toast.success('Question activated immediately!');
+              }}
+              className="p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-md transition-colors"
+              title="Activate Now"
+            >
+              <AlertCircle className="w-4 h-4" />
+            </button>
+          )}
           <button 
             onClick={() => setIsEditing(true)}
             className="p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-md transition-colors"
@@ -397,13 +496,19 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     );
   };
 
-  const ShareLinkButton: React.FC<{ date: string }> = ({ date }) => {
+  const ShareLinkButton: React.FC<{ date?: string, isActive?: boolean }> = ({ date, isActive }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopyLink = (e: React.MouseEvent) => {
       e.stopPropagation();
       const url = new URL(window.location.href);
-      url.searchParams.set('date', date);
+      if (isActive) {
+        url.searchParams.set('active', 'true');
+        url.searchParams.delete('date');
+      } else if (date) {
+        url.searchParams.set('date', date);
+        url.searchParams.delete('active');
+      }
       navigator.clipboard.writeText(url.toString());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -527,20 +632,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                     placeholder="E.g., Which stadium will host the opening match?"
                   />
                   
-                  <div className="flex items-center gap-2 mb-3">
-                    <input 
-                      type="checkbox"
-                      id="manualInput"
-                      checked={isManualInput}
-                      onChange={(e) => setIsManualInput(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
-                    />
-                    <label htmlFor="manualInput" className="text-sm font-medium text-slate-700 cursor-pointer">
-                      Need empty boxes (Users type answer manually)
-                    </label>
-                  </div>
-                  
-                  {isManualInput && (
+                  {type === 'special' && (
                     <div className="flex items-center gap-3 mb-3">
                       <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Boxes Count:</label>
                       <input
@@ -553,8 +645,22 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                       />
                     </div>
                   )}
+
+                  {type === 'multiple_choice' && (
+                    <div className="flex items-center gap-3 mb-3">
+                      <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Max Selections:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={maxSelections}
+                        onChange={(e) => setMaxSelections(parseInt(e.target.value) || 1)}
+                        className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                      />
+                    </div>
+                  )}
                   
-                  {!isManualInput && (
+                  {type !== 'special' && type !== 'multiple_choice' && (
                     <div className="space-y-2">
                       <label className="block text-xs sm:text-sm font-medium text-slate-700">Answer Options</label>
                       {options.map((opt, index) => (
@@ -588,6 +694,37 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                       </button>
                     </div>
                   )}
+
+                  {type === 'multiple_choice' && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="block text-xs sm:text-sm font-medium text-slate-700">Bulk Options (one per line)</label>
+                        <textarea
+                          value={options.join('\n')}
+                          onChange={(e) => setOptions(e.target.value.split('\n'))}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-y min-h-[120px] text-sm"
+                          placeholder="Option A&#10;Option B&#10;Option C..."
+                        />
+                      </div>
+                      {options.filter(o => o.trim()).length > 0 && (
+                        <div className="space-y-2">
+                          <label className="block text-xs sm:text-sm font-medium text-slate-700">
+                            Parsed Options Preview ({options.filter(o => o.trim()).length})
+                          </label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl max-h-48 overflow-y-auto">
+                            {options.filter(o => o.trim()).map((opt, i) => (
+                              <div key={i} className="flex items-center gap-2 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                  {i + 1}
+                                </span>
+                                <span className="truncate" title={opt}>{opt}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Type</label>
@@ -599,6 +736,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                     <option value="daily">Daily</option>
                     <option value="bonus">Bonus</option>
                     <option value="bumper">Bumper</option>
+                    <option value="special">Special</option>
+                    <option value="multiple_choice">Multiple Choice</option>
                   </select>
                 </div>
                 <div>
@@ -606,9 +745,10 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                   <input 
                     type="number" 
                     min="1"
-                    value={points}
+                    value={type === 'multiple_choice' ? maxSelections : points}
                     onChange={(e) => setPoints(Number(e.target.value))}
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                    disabled={type === 'multiple_choice'}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
                 <div>
@@ -622,15 +762,27 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">End Time</label>
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">End Date & Time</label>
                   <input 
-                    type="time" 
+                    type="datetime-local" 
                     step="1"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
                     className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
                   />
                 </div>
+              </div>
+              
+              <div className="mt-4 flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={isActivatedNow}
+                    onChange={(e) => setIsActivatedNow(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                  />
+                  Activate Now
+                </label>
               </div>
               
               <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
@@ -691,7 +843,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
               <AlertCircle className="w-5 h-5 text-amber-500" /> Active Questions ({activeQuestions.length})
             </h3>
             {activeQuestions.length > 0 && (
-              <ShareLinkButton date={activeQuestions[0].date} />
+              <ShareLinkButton isActive={true} />
             )}
           </div>
           {activeQuestions.length === 0 ? (
@@ -745,6 +897,32 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
           ) : (
             <div className="space-y-3">
               {bumperQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
+            </div>
+          )}
+        </SectionAccordion>
+
+        <SectionAccordion 
+          title={<><AlertCircle className="w-5 h-5 text-purple-500" /> Special Questions</>} 
+          count={specialQuestions.length}
+        >
+          {specialQuestions.length === 0 ? (
+            <p className="text-slate-500 italic">No special questions yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {specialQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
+            </div>
+          )}
+        </SectionAccordion>
+
+        <SectionAccordion 
+          title={<><AlertCircle className="w-5 h-5 text-pink-500" /> Multiple Choice Questions</>} 
+          count={multipleChoiceQuestions.length}
+        >
+          {multipleChoiceQuestions.length === 0 ? (
+            <p className="text-slate-500 italic">No multiple choice questions yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {multipleChoiceQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
             </div>
           )}
         </SectionAccordion>
