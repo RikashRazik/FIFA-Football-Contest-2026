@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './views/Dashboard';
 import { Leaderboard } from './views/Leaderboard';
@@ -35,6 +36,10 @@ export default function App() {
   const [publicDate, setPublicDate] = useState<string | null>(() => {
     return new URLSearchParams(window.location.search).get('date');
   });
+
+  const [publicQuestionId, setPublicQuestionId] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get('questionId');
+  });
   
   const [isPublicActive, setIsPublicActive] = useState(() => {
     return new URLSearchParams(window.location.search).get('active') === 'true';
@@ -63,15 +68,56 @@ export default function App() {
     return <PublicLeaderboardView participants={store.participants} />;
   }
 
+  if (publicQuestionId) {
+    if (store.isLoading) {
+      return (
+        <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-400 font-medium">Loading prediction details...</p>
+          </div>
+        </div>
+      );
+    }
+    const question = store.questions.find(q => q.id === publicQuestionId);
+    if (question) {
+      return (
+        <PublicQuestionsView 
+          date={question.date} 
+          questions={[question]} 
+          participants={store.participants} 
+          answers={store.answers} 
+          addAnswer={store.addAnswer} 
+          isActiveView={false} 
+          isLoading={store.isLoading}
+          highlightedQuestionId={publicQuestionId}
+        />
+      );
+    } else {
+      return (
+        <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans">
+          <h1 className="text-3xl font-black text-white tracking-widest uppercase mb-4 text-center">SFWC 2026</h1>
+          <div className="bg-[#1e293b] p-8 rounded-2xl border border-blue-900/50 max-w-md w-full text-center shadow-xl">
+            <p className="text-xl font-bold text-red-400 mb-2">Question Not Available</p>
+            <p className="text-slate-400 text-sm">This specific prediction is no longer active, has expired, or was removed by the administrator.</p>
+            <a href="/" className="mt-6 inline-block bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+              Back to Safety
+            </a>
+          </div>
+        </div>
+      );
+    }
+  }
+
   if (isPublicActive) {
     const activeQuestions = store.questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !isQuestionTimedOut(q));
     const todayDate = new Date().toISOString().split('T')[0];
-    return <PublicQuestionsView date={todayDate} questions={activeQuestions} participants={store.participants} answers={store.answers} addAnswer={store.addAnswer} isActiveView={true} />;
+    return <PublicQuestionsView date={todayDate} questions={activeQuestions} participants={store.participants} answers={store.answers} addAnswer={store.addAnswer} isActiveView={true} isLoading={store.isLoading} />;
   }
 
   if (publicDate) {
     const dayQuestions = store.questions.filter(q => q.date === publicDate);
-    return <PublicQuestionsView date={publicDate} questions={dayQuestions} participants={store.participants} answers={store.answers} addAnswer={store.addAnswer} isActiveView={false} />;
+    return <PublicQuestionsView date={publicDate} questions={dayQuestions} participants={store.participants} answers={store.answers} addAnswer={store.addAnswer} isActiveView={false} isLoading={store.isLoading} />;
   }
 
   if (!isAuthenticated) {
@@ -111,61 +157,73 @@ export default function App() {
         </header>
         
         <div className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
-          {activeTab === 'dashboard' && (
-            <Dashboard 
-              participants={store.participants} 
-              questions={store.questions}
-              answers={store.answers}
-              onNavigate={setActiveTab} 
-            />
-          )}
-          {activeTab === 'leaderboard' && (
-            <Leaderboard 
-              participants={store.participants} 
-              updateScore={store.updateParticipantScore}
-              onParticipantClick={handleParticipantClick}
-            />
-          )}
-          {activeTab === 'questions' && (
-            <QuestionsPortal 
-              questions={store.questions}
-              participants={store.participants}
-              answers={store.answers}
-              addQuestion={store.addQuestion}
-              updateQuestion={store.updateQuestion}
-              deleteQuestion={store.deleteQuestion}
-              isAddModalOpen={isAddModalOpen}
-              setIsAddModalOpen={setIsAddModalOpen}
-            />
-          )}
-          {activeTab === 'users' && (
-            <UserManager 
-              participants={store.participants}
-              addParticipant={store.addParticipant}
-              updateParticipantName={store.updateParticipantName}
-              updateParticipantDailyScore={store.updateParticipantDailyScore}
-              removeParticipantDailyScore={store.removeParticipantDailyScore}
-              deleteParticipant={store.deleteParticipant}
-              onParticipantClick={handleParticipantClick}
-            />
-          )}
-          {activeTab === 'active-questions' && (
-            <ActiveQuestions
-              questions={store.questions}
-              participants={store.participants}
-              answers={store.answers}
-              deleteParticipantAnswers={store.deleteParticipantAnswers}
-            />
-          )}
-          {activeTab === 'evaluate' && (
-            <EvaluateAnswers
-              questions={store.questions}
-              participants={store.participants}
-              answers={store.answers}
-              updateParticipantScore={store.updateParticipantScore}
-              updateQuestion={store.updateQuestion}
-            />
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }} // smooth easeOut
+            >
+              {activeTab === 'dashboard' && (
+                <Dashboard 
+                  participants={store.participants} 
+                  questions={store.questions}
+                  answers={store.answers}
+                  onNavigate={setActiveTab} 
+                />
+              )}
+              {activeTab === 'leaderboard' && (
+                <Leaderboard 
+                  participants={store.participants} 
+                  updateScore={store.updateParticipantScore}
+                  onParticipantClick={handleParticipantClick}
+                />
+              )}
+              {activeTab === 'questions' && (
+                <QuestionsPortal 
+                  questions={store.questions}
+                  participants={store.participants}
+                  answers={store.answers}
+                  addQuestion={store.addQuestion}
+                  updateQuestion={store.updateQuestion}
+                  deleteQuestion={store.deleteQuestion}
+                  isAddModalOpen={isAddModalOpen}
+                  setIsAddModalOpen={setIsAddModalOpen}
+                />
+              )}
+              {activeTab === 'users' && (
+                <UserManager 
+                  participants={store.participants}
+                  addParticipant={store.addParticipant}
+                  updateParticipantName={store.updateParticipantName}
+                  updateParticipantDailyScore={store.updateParticipantDailyScore}
+                  removeParticipantDailyScore={store.removeParticipantDailyScore}
+                  deleteParticipant={store.deleteParticipant}
+                  onParticipantClick={handleParticipantClick}
+                />
+              )}
+              {activeTab === 'active-questions' && (
+                <ActiveQuestions
+                  questions={store.questions}
+                  participants={store.participants}
+                  answers={store.answers}
+                  deleteParticipantAnswers={store.deleteParticipantAnswers}
+                  updateQuestion={store.updateQuestion}
+                  deleteQuestion={store.deleteQuestion}
+                />
+              )}
+              {activeTab === 'evaluate' && (
+                <EvaluateAnswers
+                  questions={store.questions}
+                  participants={store.participants}
+                  answers={store.answers}
+                  updateParticipantScore={store.updateParticipantScore}
+                  updateQuestion={store.updateQuestion}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
         
         {(activeTab === 'dashboard' || activeTab === 'questions') && (

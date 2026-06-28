@@ -3,6 +3,7 @@ export type QuestionType = 'daily' | 'bonus' | 'bumper' | 'special' | 'multiple_
 export interface Question {
   id: string;
   text: string;
+  title?: string;
   type: QuestionType;
   points: number;
   date: string;
@@ -15,6 +16,8 @@ export interface Question {
   manualInputCount?: number;
   maxSelections?: number;
   isActivatedNow?: boolean;
+  columns?: number;
+  isMultipleChoice?: boolean;
 }
 
 export interface Participant {

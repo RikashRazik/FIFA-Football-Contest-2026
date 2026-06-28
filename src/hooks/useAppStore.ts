@@ -54,6 +54,7 @@ export function useAppStore() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Migration & listeners setup
@@ -114,7 +115,14 @@ export function useAppStore() {
       }
     };
 
-    initializeFirebaseData().catch(console.error);
+    initializeFirebaseData()
+      .then(() => {
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setIsLoading(false);
+      });
 
     const unsubParticipants = onSnapshot(collection(db, 'participants'), (snap) => {
       setParticipants(snap.docs.map(d => ({ ...d.data(), id: d.id } as Participant)));
@@ -293,6 +301,7 @@ export function useAppStore() {
     participants,
     questions,
     answers,
+    isLoading,
     updateParticipantScore,
     addParticipant,
     updateParticipantName,

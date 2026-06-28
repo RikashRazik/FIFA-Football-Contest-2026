@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Question } from '../types';
-import { Clock } from 'lucide-react';
+import { Clock, LogOut } from 'lucide-react';
 import { isQuestionTimedOut, COUNTRIES } from '../utils';
 
 const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, date }) => {
@@ -61,16 +61,74 @@ interface PublicQuestionsViewProps {
   answers: import('../types').Answer[];
   addAnswer: (questionId: string, participantId: string, answer: string) => void;
   isActiveView?: boolean;
+  isLoading?: boolean;
+  highlightedQuestionId?: string;
 }
 
-export function PublicQuestionsView({ date, questions, participants, answers, addAnswer, isActiveView }: PublicQuestionsViewProps) {
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, number | string | string[]>>({});
+export function PublicQuestionsView({ 
+  date, 
+  questions, 
+  participants, 
+  answers, 
+  addAnswer, 
+  isActiveView, 
+  isLoading,
+  highlightedQuestionId
+}: PublicQuestionsViewProps) {
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, number | string | string[] | number[]>>({});
   const [uniqueId, setUniqueId] = useState('');
   const [error, setError] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loggedInParticipant, setLoggedInParticipant] = useState<import('../types').Participant | null>(null);
+  
+  const [loggedInParticipant, setLoggedInParticipant] = useState<import('../types').Participant | null>(() => {
+    const saved = sessionStorage.getItem('sfwc_logged_in_participant');
+    return saved ? JSON.parse(saved) : null;
+  });
+  
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem('sfwc_is_authenticated') === 'true';
+  });
+
+  useEffect(() => {
+    if (loggedInParticipant) {
+      const questionIds = questions.map(q => q.id);
+      const hasSubmitted = answers.some(a => a.participantId === loggedInParticipant.id && questionIds.includes(a.questionId));
+      if (hasSubmitted) {
+        setIsSubmitted(true);
+        const existingAnswers = answers.filter(a => a.participantId === loggedInParticipant.id && questionIds.includes(a.questionId));
+        const newSelectedOptions: Record<string, number | string | string[] | number[]> = {};
+        existingAnswers.forEach(ans => {
+          const q = questions.find(q => q.id === ans.questionId);
+          if (q) {
+            if (q.isManualInput) {
+              if (q.manualInputCount && q.manualInputCount > 1) {
+                newSelectedOptions[q.id] = ans.answer.split(' | ');
+              } else {
+                newSelectedOptions[q.id] = ans.answer;
+              }
+            } else if ((q.type === 'multiple_choice' || q.isMultipleChoice) && q.options) {
+              const selectedTexts = ans.answer.split(' | ');
+              const indices: number[] = [];
+              selectedTexts.forEach(text => {
+                const idx = q.options!.indexOf(text);
+                if (idx !== -1) indices.push(idx);
+              });
+              newSelectedOptions[q.id] = indices;
+            } else if (q.options) {
+              const idx = q.options.indexOf(ans.answer);
+              if (idx !== -1) {
+                newSelectedOptions[q.id] = idx;
+              }
+            }
+          }
+        });
+        setSelectedOptions(newSelectedOptions);
+      } else {
+        setIsSubmitted(false);
+      }
+    }
+  }, [loggedInParticipant, questions, answers]);
 
   const getDayNumber = (dateString: string) => {
     const start = new Date('2026-06-11T00:00:00Z');
@@ -79,7 +137,7 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
     return diffDays + 1;
   };
 
-  const handleOptionSelect = (questionId: string, optionValue: number | string | string[]) => {
+  const handleOptionSelect = (questionId: string, optionValue: number | string | string[] | number[]) => {
     if (isSubmitted) return;
     setSelectedOptions(prev => ({
       ...prev,
@@ -101,6 +159,8 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
     }
     setLoggedInParticipant(participant);
     setIsAuthenticated(true);
+    sessionStorage.setItem('sfwc_logged_in_participant', JSON.stringify(participant));
+    sessionStorage.setItem('sfwc_is_authenticated', 'true');
     setError('');
 
     // Check if they already submitted
@@ -109,7 +169,7 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
     if (hasSubmitted) {
       setIsSubmitted(true);
       const existingAnswers = answers.filter(a => a.participantId === participant.id && questionIds.includes(a.questionId));
-      const newSelectedOptions: Record<string, number | string | string[]> = {};
+      const newSelectedOptions: Record<string, number | string | string[] | number[]> = {};
       existingAnswers.forEach(ans => {
         const q = questions.find(q => q.id === ans.questionId);
         if (q) {
@@ -119,7 +179,7 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
             } else {
               newSelectedOptions[q.id] = ans.answer;
             }
-          } else if (q.type === 'multiple_choice' && q.options) {
+          } else if ((q.type === 'multiple_choice' || q.isMultipleChoice) && q.options) {
             const selectedTexts = ans.answer.split(' | ');
             const indices: number[] = [];
             selectedTexts.forEach(text => {
@@ -138,18 +198,6 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
       setSelectedOptions(newSelectedOptions);
     }
   };
-
-  if (questions.length === 0) {
-    return (
-      <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans">
-        <h1 className="text-3xl font-black text-white tracking-widest uppercase mb-4 text-center">SFWC 2026</h1>
-        <div className="bg-[#1e293b] p-8 rounded-2xl border border-blue-900/50 max-w-md w-full text-center">
-          <p className="text-xl font-bold text-slate-400 mb-2">No Questions Found</p>
-          <p className="text-slate-500">There are no questions scheduled for this day.</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!isAuthenticated) {
     return (
@@ -198,6 +246,29 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-400 font-medium">Checking questions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans">
+        <h1 className="text-3xl font-black text-white tracking-widest uppercase mb-4 text-center">SFWC 2026</h1>
+        <div className="bg-[#1e293b] p-8 rounded-2xl border border-blue-900/50 max-w-md w-full text-center">
+          <p className="text-xl font-bold text-slate-400 mb-2">No Questions Found</p>
+          <p className="text-slate-500">There are no questions scheduled for this day.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Find the earliest active end time to display at the top
   const activeQuestionsWithTime = questions.filter(q => q.status === 'active' && q.endTime);
   let globalEndTime = null;
@@ -226,15 +297,37 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
             SFWC 2026
           </h1>
           <div className="inline-block bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 border border-blue-500 rounded-full px-8 py-2 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-            <span className="text-xl font-bold text-yellow-400 tracking-wider">
-              {isActiveView ? 'ACTIVE QUESTIONS' : `DAY ${getDayNumber(date)} QUESTIONS`}
+            <span className="text-xl font-bold text-yellow-400 tracking-wider font-sans">
+              {highlightedQuestionId ? '🎯 FEATURED PREDICTION' : isActiveView ? 'ACTIVE QUESTIONS' : `DAY ${getDayNumber(date)} QUESTIONS`}
             </span>
           </div>
-          <div className="flex flex-col items-center justify-center gap-2 mt-4">
-            <p className="text-slate-300 font-medium">Welcome, <span className="text-white font-bold">{loggedInParticipant?.name}</span></p>
+          <div className="flex flex-col items-center justify-center gap-4 mt-4">
+            <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-950/80 via-indigo-950/50 to-blue-950/80 border border-blue-500/30 px-6 py-3 rounded-2xl shadow-[0_0_20px_rgba(59,130,246,0.15)] backdrop-blur-md">
+              <span className="text-slate-400 text-xs sm:text-sm font-bold tracking-wider uppercase">Participant:</span>
+              <span className="text-white font-black text-sm sm:text-base px-4 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.4)] tracking-wide border border-blue-400/20">
+                {loggedInParticipant?.name}
+              </span>
+              <button
+                onClick={() => {
+                  sessionStorage.removeItem('sfwc_logged_in_participant');
+                  sessionStorage.removeItem('sfwc_is_authenticated');
+                  setLoggedInParticipant(null);
+                  setIsAuthenticated(false);
+                  setIsSubmitted(false);
+                  setSelectedOptions({});
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-90 flex items-center justify-center border border-slate-800 hover:border-red-500/30"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
+              </button>
+            </div>
             {globalEndTime && !isSubmitted && (
-              <div className="mt-2 inline-flex flex-col items-center bg-[#0f172a] px-6 py-3 rounded-2xl border border-amber-900/50 shadow-lg">
-                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Time Remaining</span>
+              <div className="mt-2 inline-flex flex-col items-center bg-[#0a0f24] px-8 py-3.5 rounded-2xl border border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
+                <span className="text-amber-400/80 text-[10px] font-extrabold uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                  Time Remaining
+                </span>
                 <CountdownTimer endTime={globalEndTime.endTime!} date={globalEndTime.date} />
               </div>
             )}
@@ -249,26 +342,49 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
               </p>
             </div>
           )}
-          {questions.map((q, qIndex) => (
-            <div key={q.id} className="bg-[#0f172a] rounded-2xl border border-blue-900/50 overflow-hidden shadow-xl transition-all hover:border-blue-700/50">
-              <div className="p-6 md:p-8 space-y-6">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                    q.type === 'daily' ? 'bg-blue-900/50 text-blue-300 border border-blue-700/50' :
-                    q.type === 'bonus' ? 'bg-purple-900/50 text-purple-300 border border-purple-700/50' :
-                    'bg-emerald-900/50 text-emerald-300 border border-emerald-700/50'
-                  }`}>
-                    {q.type} Question
-                  </span>
-                  <span className="text-sm font-bold text-slate-500 bg-slate-800 px-3 py-1 rounded-full">
-                    {q.points} Points
-                  </span>
-                  {q.endTime && q.status === 'active' && <CountdownTimer endTime={q.endTime} date={q.date} />}
-                </div>
+          {questions.map((q, qIndex) => {
+            const isHighlighted = highlightedQuestionId === q.id;
+            return (
+              <div 
+                key={q.id} 
+                className={`rounded-2xl border overflow-hidden shadow-xl transition-all relative ${
+                  isHighlighted 
+                    ? 'border-amber-500/80 bg-[#111933] shadow-[0_0_25px_rgba(245,158,11,0.2)] hover:border-amber-400' 
+                    : 'bg-[#0f172a] border-blue-900/50 hover:border-blue-700/50'
+                }`}
+              >
+                {isHighlighted && (
+                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-600 animate-pulse"></div>
+                )}
+                <div className="p-6 md:p-8 space-y-6">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {isHighlighted && (
+                      <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-yellow-300 border border-amber-500/40 animate-pulse flex items-center gap-1">
+                        <span>🎯</span> Featured
+                      </span>
+                    )}
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                      q.type === 'daily' ? 'bg-blue-900/50 text-blue-300 border border-blue-700/50' :
+                      q.type === 'bonus' ? 'bg-purple-900/50 text-purple-300 border border-purple-700/50' :
+                      'bg-emerald-900/50 text-emerald-300 border border-emerald-700/50'
+                    }`}>
+                      {q.type} Question
+                    </span>
+                    <span className="text-sm font-bold text-slate-500 bg-slate-800 px-3 py-1 rounded-full">
+                      {q.points} Points
+                    </span>
+                  </div>
                 
-                <h2 className="text-xl md:text-2xl font-semibold text-white leading-relaxed">
-                  <span className="text-blue-500 mr-2">Q{qIndex + 1}.</span> {q.text}
-                </h2>
+                <div className="space-y-3">
+                  {q.title && (
+                    <div className="text-xs font-extrabold uppercase tracking-widest text-blue-400 bg-blue-500/10 border border-blue-500/25 px-3 py-1 rounded-lg inline-block shadow-[0_0_12px_rgba(59,130,246,0.1)]">
+                      {q.title}
+                    </div>
+                  )}
+                  <h2 className="text-xl md:text-2xl font-semibold text-white leading-relaxed">
+                    <span className="text-blue-500 mr-2">Q{qIndex + 1}.</span> {q.text}
+                  </h2>
+                </div>
 
                 {q.isManualInput ? (
                   <div className="pt-4 space-y-3">
@@ -304,9 +420,14 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                   </div>
                 ) : (
                   q.options && q.options.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                    <div className={`grid gap-4 pt-4 ${
+                      q.columns === 1 ? 'grid-cols-1' :
+                      q.columns === 3 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3' :
+                      q.columns === 4 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' :
+                      'grid-cols-1 sm:grid-cols-2'
+                    }`}>
                       {q.options.map((opt, i) => {
-                        const isMultipleChoice = q.type === 'multiple_choice';
+                        const isMultipleChoice = q.type === 'multiple_choice' || !!q.isMultipleChoice;
                         const currentSelection = selectedOptions[q.id];
                         let isSelected = false;
                         
@@ -321,7 +442,7 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                             key={i}
                             onClick={() => {
                               if (isMultipleChoice) {
-                                const currentArr = Array.isArray(currentSelection) ? [...currentSelection as number[]] : [];
+                                const currentArr: number[] = Array.isArray(currentSelection) ? (currentSelection as number[]) : [];
                                 const maxSelections = q.maxSelections || 2;
                                 
                                 if (currentArr.includes(i)) {
@@ -347,7 +468,7 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                                 ? 'bg-blue-500 text-white'
                                 : 'bg-slate-700 text-slate-300'
                             }`}>
-                              {q.type === 'multiple_choice' ? i + 1 : String.fromCharCode(65 + i)}
+                              {isMultipleChoice ? i + 1 : String.fromCharCode(65 + i)}
                             </span>
                             <span className={`font-medium ${isSelected ? 'text-white' : 'text-slate-300'}`}>
                               {opt}
@@ -360,7 +481,8 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                 )}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
 
         <div className="bg-[#0f172a] rounded-2xl border border-blue-900/50 p-6 md:p-8 mt-8 shadow-xl text-center">
@@ -399,7 +521,7 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                       if (question.isManualInput) {
                         const valString = Array.isArray(optValue) ? optValue.filter(Boolean).join(' | ') : String(optValue);
                         addAnswer(qId, loggedInParticipant.id, valString);
-                      } else if (question.type === 'multiple_choice' && question.options) {
+                      } else if ((question.type === 'multiple_choice' || question.isMultipleChoice) && question.options) {
                         const indices = Array.isArray(optValue) ? optValue as number[] : [optValue as number];
                         const valString = indices.map(idx => question.options![idx]).join(' | ');
                         addAnswer(qId, loggedInParticipant.id, valString);
@@ -450,62 +572,66 @@ export function PublicQuestionsView({ date, questions, participants, answers, ad
                   </svg>
                 </motion.div>
                 <h3 className="text-3xl font-bold text-emerald-400 mb-3 tracking-tight">Success!</h3>
-                <p className="text-emerald-100/80 mb-8 text-lg">Your responses have been recorded, <span className="font-bold text-white">{loggedInParticipant?.name}</span>. Best of luck!</p>
+                <p className="text-emerald-100/80 mb-6 text-base">Your responses have been recorded, <span className="font-bold text-white">{loggedInParticipant?.name}</span>. Best of luck!</p>
               
-              <button
-                onClick={() => {
-                  let message = `*SFWC 26 Day ${getDayNumber(date)} - ${loggedInParticipant?.name}*\r\n\r\n`;
-              
-                  questions.forEach((q, qIndex) => {
-                    const participantAnswers = answers.filter(a => a.participantId === loggedInParticipant?.id);
-                    let answerForQ = participantAnswers.find(a => a.questionId === q.id)?.answer;
-                    
-                    if (!answerForQ) {
-                      const selectedOpt = selectedOptions[q.id];
-                      if (q.isManualInput) {
-                        answerForQ = Array.isArray(selectedOpt) ? selectedOpt.filter(Boolean).join(' | ') : String(selectedOpt || '');
-                      } else if (q.type === 'multiple_choice' && q.options && selectedOpt !== undefined) {
-                        const indices = Array.isArray(selectedOpt) ? selectedOpt as number[] : [selectedOpt as number];
-                        answerForQ = indices.map(idx => q.options![idx]).join(' | ');
-                      } else if (q.options && selectedOpt !== undefined) {
-                        answerForQ = q.options[selectedOpt as number];
-                      }
-                    }
+                <div className="space-y-3">
+                  <button
+                    onClick={() => {
+                      let message = `*SFWC 2026 Day ${getDayNumber(date)} - ${loggedInParticipant?.name}*\r\n\r\n`;
+                  
+                      questions.forEach((q, qIndex) => {
+                        const participantAnswers = answers.filter(a => a.participantId === loggedInParticipant?.id);
+                        let answerForQ = participantAnswers.find(a => a.questionId === q.id)?.answer;
+                        
+                        if (!answerForQ) {
+                          const selectedOpt = selectedOptions[q.id];
+                          if (q.isManualInput) {
+                            answerForQ = Array.isArray(selectedOpt) ? selectedOpt.filter(Boolean).join(' | ') : String(selectedOpt || '');
+                          } else if ((q.type === 'multiple_choice' || q.isMultipleChoice) && q.options && selectedOpt !== undefined) {
+                            const indices = Array.isArray(selectedOpt) ? selectedOpt as number[] : [selectedOpt as number];
+                            answerForQ = indices.map(idx => q.options![idx]).join(' | ');
+                          } else if (q.options && selectedOpt !== undefined) {
+                            answerForQ = q.options[selectedOpt as number];
+                          }
+                        }
 
-                    if (q.isManualInput || q.type === 'multiple_choice') {
-                      message += `*Q${qIndex + 1}* - ${answerForQ || 'No Answer'}\r\n`;
-                    } else if (answerForQ && q.options) {
-                      const optIndex = q.options.indexOf(answerForQ);
-                      if (optIndex !== -1) {
-                        const optionLetter = String.fromCharCode(65 + optIndex);
-                        message += `*Q${qIndex + 1}* - Option ${optionLetter} - ${answerForQ}\r\n`;
-                      } else {
-                        message += `*Q${qIndex + 1}* - ${answerForQ}\r\n`;
-                      }
-                    } else {
-                      message += `*Q${qIndex + 1}* - No Answer\r\n`;
-                    }
-                  });
-              
-                  const encodedMessage = encodeURIComponent(message.trim());
-                  window.open(`https://api.whatsapp.com/send?text=${encodedMessage}`, '_blank');
-                  setShowSuccessModal(false);
-                }}
-                className="w-full py-4 bg-[#25D366] hover:bg-[#1ebd57] text-white rounded-xl font-bold text-lg shadow-[0_0_15px_rgba(37,211,102,0.3)] hover:shadow-[0_0_25px_rgba(37,211,102,0.5)] transition-all flex items-center justify-center gap-3 mb-4"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
-                </svg>
-                Share via WhatsApp
-              </button>
-              
-              <button 
-                onClick={() => setShowSuccessModal(false)}
-                className="text-slate-400 hover:text-white transition-colors font-medium"
-              >
-                Close
-              </button>
-            </div>
+                        if (q.isManualInput || q.type === 'multiple_choice' || q.isMultipleChoice) {
+                          message += `*Q${qIndex + 1}* - ${answerForQ || 'No Answer'}\r\n`;
+                        } else if (answerForQ && q.options) {
+                          const optIndex = q.options.indexOf(answerForQ);
+                          if (optIndex !== -1) {
+                            const optionLetter = String.fromCharCode(65 + optIndex);
+                            message += `*Q${qIndex + 1}* - Option ${optionLetter} - ${answerForQ}\r\n`;
+                          } else {
+                            message += `*Q${qIndex + 1}* - ${answerForQ}\r\n`;
+                          }
+                        } else {
+                          message += `*Q${qIndex + 1}* - No Answer\r\n`;
+                        }
+                      });
+                  
+                      const encodedMessage = encodeURIComponent(message.trim());
+                      window.open(`https://api.whatsapp.com/send?text=${encodedMessage}`, '_blank');
+                    }}
+                    className="w-full py-3 px-4 bg-[#25D366] hover:bg-[#1ebd57] text-white rounded-xl font-bold text-base shadow-[0_0_15px_rgba(37,211,102,0.3)] hover:shadow-[0_0_25px_rgba(37,211,102,0.5)] transition-all flex items-center justify-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                    </svg>
+                    Share to WhatsApp
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      setShowSuccessModal(false);
+                      window.location.reload();
+                    }}
+                    className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl font-bold text-base transition-colors border border-slate-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
           </motion.div>
         </motion.div>
       )}

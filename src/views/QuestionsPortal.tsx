@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
 import { Question, QuestionType, Participant, Answer } from '../types';
-import { Plus, CheckCircle2, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Save, X, Link as LinkIcon, Users } from 'lucide-react';
+import { Plus, CheckCircle2, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Save, X, Link as LinkIcon, Users, Share2 } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { getDynamicQuestionStatus } from '../utils';
+import { ShareLinkModal } from '../components/ShareLinkModal';
 
 interface QuestionsPortalProps {
   questions: Question[];
@@ -19,8 +20,13 @@ interface QuestionsPortalProps {
 
 export function QuestionsPortal({ questions, participants, answers, addQuestion, updateQuestion, deleteQuestion, isAddModalOpen, setIsAddModalOpen }: QuestionsPortalProps) {
   const [text, setText] = useState('');
+  const [title, setTitle] = useState('');
   const [type, setType] = useState<QuestionType>('daily');
   const [points, setPoints] = useState(1);
+  const [shareModalConfig, setShareModalConfig] = useState<{ isOpen: boolean; defaultType: 'active' | 'date' | 'leaderboard' | 'question'; date?: string; questionId?: string }>({
+    isOpen: false,
+    defaultType: 'active'
+  });
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [endTime, setEndTime] = useState('');
   const [options, setOptions] = useState<string[]>(['', '', '']);
@@ -28,6 +34,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   const [manualInputCount, setManualInputCount] = useState(1);
   const [maxSelections, setMaxSelections] = useState(2);
   const [isActivatedNow, setIsActivatedNow] = useState(false);
+  const [isMultipleChoice, setIsMultipleChoice] = useState(false);
+  const [columns, setColumns] = useState(2);
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
 
   const formatEndTime = (endTimeString: string) => {
@@ -74,32 +82,36 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     const formattedText = formatQuestionText(text);
     const validOptions = options.filter(opt => opt.trim() !== '');
     
-    const newIsManualInput = type === 'special';
-    
     const newQ: any = {
       text: formattedText, 
+      title: title.trim() || '',
       type, 
-      points: type === 'multiple_choice' ? maxSelections : points, 
+      points: isMultipleChoice ? maxSelections : points, 
       date, 
       status: isActivatedNow ? 'active' : getInitialQuestionStatus(date),
-      isManualInput: newIsManualInput,
-      isActivatedNow
+      isManualInput,
+      isActivatedNow,
+      isMultipleChoice,
+      columns: isMultipleChoice ? columns : 2
     };
-    if (newIsManualInput) {
+    if (isManualInput) {
       newQ.manualInputCount = manualInputCount;
     }
-    if (type === 'multiple_choice') {
+    if (isMultipleChoice) {
       newQ.maxSelections = maxSelections;
     }
-    if (!newIsManualInput && validOptions.length > 0) newQ.options = validOptions;
+    if (!isManualInput && validOptions.length > 0) newQ.options = validOptions;
     if (endTime) newQ.endTime = endTime;
 
     addQuestion(newQ);
     
     setText('');
+    setTitle('');
     setOptions(['', '', '']);
     setEndTime('');
     setIsManualInput(false);
+    setIsMultipleChoice(false);
+    setColumns(2);
     setType('daily');
     setPoints(1);
     setManualInputCount(1);
@@ -131,10 +143,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   };
 
   const dailyQuestions = questions.filter(q => q.type === 'daily');
-  const bonusQuestions = questions.filter(q => q.type === 'bonus');
-  const bumperQuestions = questions.filter(q => q.type === 'bumper');
-  const specialQuestions = questions.filter(q => q.type === 'special');
-  const multipleChoiceQuestions = questions.filter(q => q.type === 'multiple_choice');
+  const bonusQuestions = questions.filter(q => (q.type === 'bonus' || q.type === 'special' || q.type === 'multiple_choice') && getDynamicQuestionStatus(q) !== 'active');
+  const bumperQuestions = questions.filter(q => q.type === 'bumper' && getDynamicQuestionStatus(q) !== 'active');
 
   const activeQuestions = dailyQuestions.filter(q => getDynamicQuestionStatus(q) === 'active');
   const pastQuestions = dailyQuestions.filter(q => getDynamicQuestionStatus(q) === 'past');
@@ -172,6 +182,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   const QuestionCard: React.FC<{ q: Question }> = ({ q }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(q.text);
+    const [editTitle, setEditTitle] = useState(q.title || '');
     const [editOptions, setEditOptions] = useState<string[]>(q.options || []);
     const [editEndTime, setEditEndTime] = useState(q.endTime || '');
     const [editCorrectAnswer, setEditCorrectAnswer] = useState(q.correctAnswer || '');
@@ -184,7 +195,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       const validOptions = editOptions.filter(opt => opt.trim() !== '');
       
       const updatedFields: any = {
-        text: formattedText
+        text: formattedText,
+        title: editTitle.trim()
       };
       
       if (!q.isManualInput && validOptions.length > 0) {
@@ -195,7 +207,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
         updatedFields.manualInputCount = editManualInputCount;
       }
       
-      if (q.type === 'multiple_choice') {
+      if (q.type === 'multiple_choice' || q.isMultipleChoice) {
         updatedFields.maxSelections = editMaxSelections;
         updatedFields.points = editMaxSelections;
       }
@@ -239,12 +251,26 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       return (
         <div className="bg-indigo-50/50 p-5 rounded-xl border border-indigo-200 flex flex-col gap-4">
           <div className="space-y-3">
-            <textarea 
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none h-24"
-              placeholder="Edit question..."
-            />
+            <div>
+              <label className="block text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1">Question Title</label>
+              <input 
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm font-semibold mb-2 bg-white"
+                placeholder="E.g., Match 1 Stadium (Optional)"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Question Text</label>
+              <textarea 
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none h-24 bg-white"
+                placeholder="Edit question..."
+              />
+            </div>
             
             <div className="flex items-center gap-3">
               <label className="text-sm font-medium text-slate-700 w-32 shrink-0">End Date & Time:</label>
@@ -282,7 +308,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
               </div>
             )}
 
-            {q.type === 'multiple_choice' && (
+            {(q.type === 'multiple_choice' || q.isMultipleChoice) && (
               <div className="flex items-center gap-3">
                 <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Max Selections:</label>
                 <input
@@ -296,7 +322,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
               </div>
             )}
             
-            {!q.isManualInput && q.type !== 'multiple_choice' && (
+            {!q.isManualInput && q.type !== 'multiple_choice' && !q.isMultipleChoice && (
               <div className="space-y-3">
                 {editOptions.map((opt, i) => (
                   <div key={i} className="flex items-center gap-2">
@@ -327,7 +353,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
               </div>
             )}
 
-            {q.type === 'multiple_choice' && (
+            {(q.type === 'multiple_choice' || q.isMultipleChoice) && (
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-slate-700">Bulk Options (one per line)</label>
@@ -424,6 +450,11 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             </span>
             <span className="text-[11px] font-bold text-slate-700 ml-1">{q.points} pts</span>
           </div>
+          {q.title && (
+            <div className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md inline-block">
+              {q.title}
+            </div>
+          )}
           <p className="text-slate-800 font-medium text-sm md:text-base leading-snug">{q.text}</p>
           {q.options && q.options.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -434,7 +465,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                   <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
                     q.correctAnswer === opt ? 'bg-emerald-200 text-emerald-800' : 'bg-indigo-100 text-indigo-700'
                   }`}>
-                    {q.type === 'multiple_choice' ? i + 1 : String.fromCharCode(65 + i)}
+                    {(q.type === 'multiple_choice' || q.isMultipleChoice) ? i + 1 : String.fromCharCode(65 + i)}
                   </span>
                   <span className="flex-1 truncate">{opt}</span>
                   {q.correctAnswer === opt && <CheckCircle2 className="w-3.5 h-3.5 ml-auto text-emerald-600 shrink-0" />}
@@ -480,6 +511,17 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             </button>
           )}
           <button 
+            onClick={() => setShareModalConfig({
+              isOpen: true,
+              defaultType: 'question',
+              questionId: q.id
+            })}
+            className="p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-md transition-colors"
+            title="Share this specific question"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+          <button 
             onClick={() => setIsEditing(true)}
             className="p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-md transition-colors"
           >
@@ -497,32 +539,17 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   };
 
   const ShareLinkButton: React.FC<{ date?: string, isActive?: boolean }> = ({ date, isActive }) => {
-    const [copied, setCopied] = useState(false);
-
-    const handleCopyLink = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const url = new URL(window.location.href);
-      if (isActive) {
-        url.searchParams.set('active', 'true');
-        url.searchParams.delete('date');
-      } else if (date) {
-        url.searchParams.set('date', date);
-        url.searchParams.delete('active');
-      }
-      navigator.clipboard.writeText(url.toString());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    };
-
     return (
       <button 
-        onClick={handleCopyLink}
-        title={copied ? 'Copied' : 'Share Link'}
-        className={`flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors ${
-          copied ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 shadow-sm'
-        }`}
+        onClick={() => setShareModalConfig({
+          isOpen: true,
+          defaultType: isActive ? 'active' : 'date',
+          date: date
+        })}
+        title="Share Predictions Link"
+        className="flex items-center justify-center w-8 h-8 rounded-lg text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 shadow-sm transition-colors"
       >
-        {copied ? <CheckCircle2 className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+        <Share2 className="w-4 h-4" />
       </button>
     );
   };
@@ -623,153 +650,228 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             <form onSubmit={handleSubmit} className="p-3 sm:p-5 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                 <div className="col-span-2 md:col-span-4">
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">Question Category</label>
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {['daily', 'bonus', 'bumper'].map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setType(cat as any);
+                          setPoints(cat === 'daily' ? 1 : cat === 'bonus' ? 3 : 5);
+                        }}
+                        className={`py-2 px-3 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold border-2 transition-all capitalize ${
+                          type === cat
+                            ? 'border-indigo-500 bg-indigo-50/50 text-indigo-700 shadow-sm'
+                            : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="col-span-2 md:col-span-4">
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Question Title (Optional)</label>
+                  <input 
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm mb-3 bg-white font-semibold"
+                    placeholder="E.g., Match 1 Stadium, Group B prediction, etc."
+                  />
+                </div>
+
+                <div className="col-span-2 md:col-span-4">
                   <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Question Text</label>
                   <textarea 
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none h-16 sm:h-20 mb-2 sm:mb-3 text-sm"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none h-16 sm:h-20 mb-3 text-sm"
                     placeholder="E.g., Which stadium will host the opening match?"
                   />
-                  
-                  {type === 'special' && (
-                    <div className="flex items-center gap-3 mb-3">
-                      <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Boxes Count:</label>
+                </div>
+
+                <div className="col-span-2 md:col-span-4 grid grid-cols-2 gap-4 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isMultipleChoice}
+                      onChange={(e) => {
+                        setIsMultipleChoice(e.target.checked);
+                        if (e.target.checked) {
+                          setIsManualInput(false);
+                          setOptions(['', '', '']);
+                        }
+                      }}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <span className="block text-sm font-bold text-slate-800">Multiple Choice</span>
+                      <span className="block text-xs text-slate-500">Allow multiple selections</span>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isManualInput}
+                      onChange={(e) => {
+                        setIsManualInput(e.target.checked);
+                        if (e.target.checked) {
+                          setIsMultipleChoice(false);
+                        }
+                      }}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <span className="block text-sm font-bold text-slate-800">Manual Input</span>
+                      <span className="block text-xs text-slate-500">Freeform text entry</span>
+                    </div>
+                  </label>
+                </div>
+
+                {isMultipleChoice && (
+                  <div className="col-span-2 md:col-span-4 space-y-4 border-l-4 border-indigo-500 pl-4 py-1 animate-in slide-in-from-left-2 duration-200">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Max Selections</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={maxSelections}
+                          onChange={(e) => setMaxSelections(parseInt(e.target.value) || 1)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Grid Columns</label>
+                        <select
+                          value={columns}
+                          onChange={(e) => setColumns(parseInt(e.target.value) || 2)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white text-sm"
+                        >
+                          <option value={1}>1 Column</option>
+                          <option value={2}>2 Columns</option>
+                          <option value={3}>3 Columns</option>
+                          <option value={4}>4 Columns</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs sm:text-sm font-medium text-slate-700">Bulk Options (one per line)</label>
+                      <textarea
+                        value={options.join('\n')}
+                        onChange={(e) => setOptions(e.target.value.split('\n'))}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-y min-h-[100px] text-sm font-sans"
+                        placeholder="Option 1&#10;Option 2&#10;Option 3..."
+                      />
+                    </div>
+                    {options.filter(o => o.trim()).length > 0 && (
+                      <div className="space-y-2">
+                        <label className="block text-xs sm:text-sm font-medium text-slate-700">
+                          Parsed Options Preview ({options.filter(o => o.trim()).length})
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl max-h-40 overflow-y-auto">
+                          {options.filter(o => o.trim()).map((opt, i) => (
+                            <div key={i} className="flex items-center gap-2 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                              <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                {i + 1}
+                              </span>
+                              <span className="truncate" title={opt}>{opt}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isManualInput && (
+                  <div className="col-span-2 md:col-span-4 space-y-4 border-l-4 border-indigo-500 pl-4 py-1 animate-in slide-in-from-left-2 duration-200">
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Boxes Count</label>
                       <input
                         type="number"
                         min="1"
                         max="10"
                         value={manualInputCount}
                         onChange={(e) => setManualInputCount(parseInt(e.target.value) || 1)}
-                        className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                        className="w-full max-w-xs px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
                       />
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {type === 'multiple_choice' && (
-                    <div className="flex items-center gap-3 mb-3">
-                      <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Max Selections:</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="10"
-                        value={maxSelections}
-                        onChange={(e) => setMaxSelections(parseInt(e.target.value) || 1)}
-                        className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                      />
-                    </div>
-                  )}
-                  
-                  {type !== 'special' && type !== 'multiple_choice' && (
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-medium text-slate-700">Answer Options</label>
-                      {options.map((opt, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0">
-                            {String.fromCharCode(65 + index)}
-                          </span>
-                          <input 
-                            type="text"
-                            value={opt}
-                            onChange={(e) => handleOptionChange(index, e.target.value)}
-                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                            className="flex-1 px-3 py-1.5 sm:py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
-                          />
-                          <button 
-                            type="button"
-                            onClick={() => removeOptionField(index)}
-                            disabled={options.length <= 2}
-                            className="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={addOptionField}
-                        className="text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-1"
-                      >
-                        <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Option
-                      </button>
-                    </div>
-                  )}
-
-                  {type === 'multiple_choice' && (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="block text-xs sm:text-sm font-medium text-slate-700">Bulk Options (one per line)</label>
-                        <textarea
-                          value={options.join('\n')}
-                          onChange={(e) => setOptions(e.target.value.split('\n'))}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-y min-h-[120px] text-sm"
-                          placeholder="Option A&#10;Option B&#10;Option C..."
+                {!isMultipleChoice && !isManualInput && (
+                  <div className="col-span-2 md:col-span-4 space-y-2.5">
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700">Answer Options</label>
+                    {options.map((opt, index) => (
+                      <div key={index} className="flex items-center gap-2 animate-in fade-in duration-150">
+                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {String.fromCharCode(65 + index)}
+                        </span>
+                        <input 
+                          type="text"
+                          value={opt}
+                          onChange={(e) => handleOptionChange(index, e.target.value)}
+                          placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
                         />
+                        <button 
+                          type="button"
+                          onClick={() => removeOptionField(index)}
+                          disabled={options.length <= 2}
+                          className="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
-                      {options.filter(o => o.trim()).length > 0 && (
-                        <div className="space-y-2">
-                          <label className="block text-xs sm:text-sm font-medium text-slate-700">
-                            Parsed Options Preview ({options.filter(o => o.trim()).length})
-                          </label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl max-h-48 overflow-y-auto">
-                            {options.filter(o => o.trim()).map((opt, i) => (
-                              <div key={i} className="flex items-center gap-2 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
-                                <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0">
-                                  {i + 1}
-                                </span>
-                                <span className="truncate" title={opt}>{opt}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Type</label>
-                  <select 
-                    value={type}
-                    onChange={handleTypeChange}
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white text-sm"
-                  >
-                    <option value="daily">Daily</option>
-                    <option value="bonus">Bonus</option>
-                    <option value="bumper">Bumper</option>
-                    <option value="special">Special</option>
-                    <option value="multiple_choice">Multiple Choice</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Points</label>
-                  <input 
-                    type="number" 
-                    min="1"
-                    value={type === 'multiple_choice' ? maxSelections : points}
-                    onChange={(e) => setPoints(Number(e.target.value))}
-                    disabled={type === 'multiple_choice'}
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm disabled:bg-slate-100 disabled:text-slate-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Date</label>
-                  <input 
-                    type="date" 
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">End Date & Time</label>
-                  <input 
-                    type="datetime-local" 
-                    step="1"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
-                  />
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addOptionField}
+                      className="text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Option
+                    </button>
+                  </div>
+                )}
+
+                <div className="col-span-2 md:col-span-4 grid grid-cols-3 gap-3 pt-3">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Points</label>
+                    <input 
+                      type="number" 
+                      min="1"
+                      value={isMultipleChoice ? maxSelections : points}
+                      onChange={(e) => setPoints(Number(e.target.value))}
+                      disabled={isMultipleChoice}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Date</label>
+                    <input 
+                      type="date" 
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">End Date & Time</label>
+                    <input 
+                      type="datetime-local" 
+                      step="1"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                    />
+                  </div>
                 </div>
               </div>
               
@@ -837,25 +939,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
           </div>
         )}
 
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-amber-500" /> Active Questions ({activeQuestions.length})
-            </h3>
-            {activeQuestions.length > 0 && (
-              <ShareLinkButton isActive={true} />
-            )}
-          </div>
-          {activeQuestions.length === 0 ? (
-            <p className="text-slate-500 italic">No active questions currently.</p>
-          ) : (
-            <div className="space-y-3">
-              <AnimatePresence>
-                {activeQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
-              </AnimatePresence>
-            </div>
-          )}
-        </div>
+
 
         <SectionAccordion 
           title={<><AlertCircle className="w-5 h-5 text-slate-500" /> Past Questions</>} 
@@ -900,32 +984,6 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             </div>
           )}
         </SectionAccordion>
-
-        <SectionAccordion 
-          title={<><AlertCircle className="w-5 h-5 text-purple-500" /> Special Questions</>} 
-          count={specialQuestions.length}
-        >
-          {specialQuestions.length === 0 ? (
-            <p className="text-slate-500 italic">No special questions yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {specialQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
-            </div>
-          )}
-        </SectionAccordion>
-
-        <SectionAccordion 
-          title={<><AlertCircle className="w-5 h-5 text-pink-500" /> Multiple Choice Questions</>} 
-          count={multipleChoiceQuestions.length}
-        >
-          {multipleChoiceQuestions.length === 0 ? (
-            <p className="text-slate-500 italic">No multiple choice questions yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {multipleChoiceQuestions.map(q => <QuestionCard key={q.id} q={q} />)}
-            </div>
-          )}
-        </SectionAccordion>
       </div>
 
       <ConfirmModal 
@@ -940,6 +998,15 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
           }
         }}
         onCancel={() => setQuestionToDelete(null)}
+      />
+
+      <ShareLinkModal 
+        isOpen={shareModalConfig.isOpen}
+        onClose={() => setShareModalConfig({ ...shareModalConfig, isOpen: false })}
+        defaultType={shareModalConfig.defaultType}
+        date={shareModalConfig.date}
+        questionId={shareModalConfig.questionId}
+        questions={questions}
       />
     </div>
   );

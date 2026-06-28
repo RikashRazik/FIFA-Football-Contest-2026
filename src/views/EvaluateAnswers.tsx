@@ -90,9 +90,11 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     matchingAnswers.some(a => a.participantId === p.id)
   );
 
+  const isMC = selectedQuestion ? (selectedQuestion.type === 'multiple_choice' || !!selectedQuestion.isMultipleChoice) : false;
+
   // Multiple Choice matching logic
   const multipleChoiceScores: Record<string, number> = {};
-  if (selectedQuestion?.type === 'multiple_choice') {
+  if (isMC && selectedQuestion) {
     participants.forEach(p => {
       const pAnswer = answers.find(a => a.questionId === selectedQuestion.id && a.participantId === p.id);
       if (pAnswer) {
@@ -112,8 +114,8 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
 
   const handleUpdateLeaderboard = async () => {
     if (!selectedQuestion || isUpdating) return;
-    if (evaluationMode === 'auto' && selectedQuestion.type !== 'multiple_choice' && !selectedAnswer) return;
-    if (evaluationMode === 'auto' && selectedQuestion.type === 'multiple_choice' && selectedMultipleAnswers.length === 0) return;
+    if (evaluationMode === 'auto' && !isMC && !selectedAnswer) return;
+    if (evaluationMode === 'auto' && isMC && selectedMultipleAnswers.length === 0) return;
     setIsUpdating(true);
     
     try {
@@ -126,7 +128,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
         'multiple_choice': 'bonusPoints'
       };
       
-      const category = categoryMap[selectedQuestion.type];
+      const category = categoryMap[selectedQuestion.type] || 'dailyPoints';
       
       const getDayIndex = (dateString: string) => {
         const start = new Date('2026-06-11T00:00:00Z');
@@ -136,7 +138,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
       const dayIdx = getDayIndex(selectedQuestion.date);
       
       if (evaluationMode === 'auto') {
-        if (selectedQuestion.type === 'multiple_choice') {
+        if (isMC) {
           for (const [pId, score] of Object.entries(multipleChoiceScores)) {
             await updateParticipantScore(pId, category, score, dayIdx);
           }
@@ -196,7 +198,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
 
     let answerToSave = '';
     if (evaluationMode === 'auto') {
-      if (selectedQuestion.type === 'multiple_choice') {
+      if (isMC) {
         if (selectedMultipleAnswers.length === 0) {
           alert("Please select at least one correct answer to save before skipping evaluation.");
           return;
@@ -277,7 +279,14 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                   }`}
                 >
                   <div className="flex justify-between items-start gap-2">
-                    <p className="text-sm font-medium text-slate-800 line-clamp-2">{q.text}</p>
+                    <div className="flex-1">
+                      {q.title && (
+                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded mb-1 inline-block">
+                          {q.title}
+                        </div>
+                      )}
+                      <p className="text-sm font-medium text-slate-800 line-clamp-2">{q.text}</p>
+                    </div>
                     <ChevronRight className={`w-4 h-4 shrink-0 ${selectedQuestion?.id === q.id ? 'text-indigo-600' : 'text-slate-400'}`} />
                   </div>
                   <div className="flex items-center gap-2 mt-2">
@@ -308,6 +317,11 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                       {selectedQuestion.points} Points
                     </span>
                   </div>
+                  {selectedQuestion.title && (
+                    <div className="text-xs font-extrabold uppercase tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md inline-block mb-1.5">
+                      {selectedQuestion.title}
+                    </div>
+                  )}
                   <h3 className="text-xl font-bold text-slate-900">{selectedQuestion.text}</h3>
                 </div>
                 <button
@@ -349,11 +363,11 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
 
                 {evaluationMode === 'auto' ? (
                   <>
-                    <h4 className="font-semibold text-slate-800 mb-4">1. Select Correct Answer{selectedQuestion.type === 'multiple_choice' ? 's' : ''}</h4>
+                    <h4 className="font-semibold text-slate-800 mb-4">1. Select Correct Answer{isMC ? 's' : ''}</h4>
                     {selectedQuestion.options && selectedQuestion.options.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
                         {selectedQuestion.options.map((opt, i) => {
-                          const isSelected = selectedQuestion.type === 'multiple_choice' 
+                          const isSelected = isMC 
                             ? selectedMultipleAnswers.includes(opt)
                             : selectedAnswer === opt;
                             
@@ -361,7 +375,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                             <button
                               key={i}
                               onClick={() => {
-                                if (selectedQuestion.type === 'multiple_choice') {
+                                if (isMC) {
                                   setSelectedMultipleAnswers(prev => 
                                     prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt]
                                   );
@@ -390,19 +404,19 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                       </div>
                     )}
 
-                    {(selectedQuestion.type === 'multiple_choice' ? selectedMultipleAnswers.length > 0 : selectedAnswer) && (
+                    {(isMC ? selectedMultipleAnswers.length > 0 : selectedAnswer) && (
                       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                         <div className="border-t border-slate-100 pt-6">
                           <h4 className="font-semibold text-slate-800 mb-2 flex items-center justify-between">
                             <span>2. Matched Participants</span>
-                            {selectedQuestion.type !== 'multiple_choice' && (
+                            {!isMC && (
                               <span className="text-sm font-normal text-slate-500">
                                 <strong className="text-emerald-600">{matchedParticipants.length}</strong> correct answer(s)
                               </span>
                             )}
                           </h4>
                           
-                          {selectedQuestion.type === 'multiple_choice' ? (
+                          {isMC ? (
                             Object.keys(multipleChoiceScores).length > 0 ? (
                               <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 max-h-[200px] overflow-y-auto">
                                 <ul className="space-y-2">
@@ -484,7 +498,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                           >
                             <option value="">Select the correct option...</option>
                             {selectedQuestion.options.map((opt, i) => (
-                              <option key={i} value={opt}>Option {selectedQuestion.type === 'multiple_choice' ? i + 1 : String.fromCharCode(65 + i)} - {opt}</option>
+                              <option key={i} value={opt}>Option {isMC ? i + 1 : String.fromCharCode(65 + i)} - {opt}</option>
                             ))}
                           </select>
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
@@ -561,7 +575,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                                     <div className="text-sm text-slate-600 bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">
                                       {(() => {
                                         if (selectedQuestion.options) {
-                                          if (selectedQuestion.type === 'multiple_choice') {
+                                          if (isMC) {
                                             // Split answers, find indices
                                             const parts = ans.answer.split(' | ');
                                             const indices = parts.map(part => {
