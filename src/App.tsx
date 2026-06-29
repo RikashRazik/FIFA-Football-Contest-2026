@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus } from 'lucide-react';
+import { Users, Plus, Loader2, Cloud, CloudOff, CheckCircle2 } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
@@ -139,6 +139,19 @@ export default function App() {
             <h1 className="text-lg md:text-xl font-bold text-white md:text-slate-800 tracking-wider uppercase md:normal-case md:tracking-normal truncate pr-2">SFWC Admin</h1>
           </div>
           <div className="flex items-center gap-3 md:gap-4 shrink-0">
+            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${store.isSyncing ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'} md:bg-opacity-100 bg-opacity-20`}>
+              {store.isSyncing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span className="hidden md:inline">Saving...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Synced</span>
+                </>
+              )}
+            </div>
             <button 
               onClick={() => setActiveTab('users')}
               className={`flex items-center justify-center p-2 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-blue-500/20 text-blue-400 md:bg-indigo-50 md:text-indigo-700' : 'text-slate-400 hover:text-white hover:bg-slate-800 md:bg-slate-100 md:text-slate-700 md:hover:bg-slate-200'}`}

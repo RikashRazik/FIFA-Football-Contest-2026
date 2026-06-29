@@ -1,42 +1,9 @@
 import React, { useState } from 'react';
 import { Participant, Question, Answer } from '../types';
-import { Users, Trophy, HelpCircle, ArrowUpRight, Activity, Clock, X, RefreshCw, AlertTriangle, CheckCircle, Database } from 'lucide-react';
+import { Users, Trophy, HelpCircle, ArrowUpRight, Activity, Clock, X } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { writeBatch, doc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
-
-const OFFICIAL_SCORES = [
-  { name: 'Basil', scores: [0, 2, 2, 2, 1, 0, 1, 1, 2, 2, 2, 1, 1, 2, 1, 3, 3, 3] },
-  { name: 'Manir', scores: [1, 2, 1, 2, 1, 0, 2, 2, 3, 1, 0, 2, 1, 3, 1, 1, 4, 2] },
-  { name: 'Ivin', scores: [1, 2, 2, 3, 1, 2, 2, 1, 2, 1, 2, 1, 0, 1, 2, 2, 2, 1] },
-  { name: 'Mujeeb', scores: [0, 1, 2, 3, 1, 1, 2, 1, 3, 2, 1, 2, 1, 2, 1, 1, 2, 2] },
-  { name: 'Baiju', scores: [1, 1, 0, 3, 1, 0, 2, 3, 1, 1, 0, 3, 1, 1, 1, 2, 3, 3] },
-  { name: 'Nameer', scores: [1, 2, 0, 3, 1, 2, 2, 2, 3, 0, 0, 2, 0, 1, 1, 2, 3, 2] },
-  { name: 'Savad', scores: [1, 1, 1, 2, 1, 0, 2, 2, 2, 2, 1, 2, 0, 3, 1, 2, 2, 2] },
-  { name: 'Fabeer', scores: [0, 1, 2, 0, 1, 0, 2, 2, 3, 2, 0, 3, 0, 2, 1, 2, 3, 2] },
-  { name: 'Askar', scores: [1, 1, 2, 2, 1, 1, 1, 2, 1, 2, 1, 1, 2, 2, 0, 2, 0, 3] },
-  { name: 'Prajith', scores: [0, 0, 1, 3, 1, 2, 2, 2, 2, 1, 1, 3, 0, 3, 1, 0, 3, 0] },
-  { name: 'Rikash', scores: [1, 0, 1, 3, 1, 1, 2, 2, 2, 1, 0, 3, 0, 2, 1, 2, 1, 2] },
-  { name: 'Shanoob', scores: [1, 1, 1, 2, 1, 1, 2, 2, 2, 2, 0, 3, 0, 2, 1, 1, 3, 0] },
-  { name: 'Hijas', scores: [0, 0, 0, 2, 1, 2, 2, 2, 3, 2, 1, 1, 1, 0, 1, 3, 1, 2] },
-  { name: 'Ajmal', scores: [0, 0, 0, 1, 1, 1, 2, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2] },
-  { name: 'Jestin', scores: [1, 0, 1, 1, 1, 0, 2, 3, 3, 1, 0, 2, 0, 2, 1, 2, 1, 2] },
-  { name: 'Shani', scores: [0, 0, 1, 2, 1, 2, 1, 2, 2, 2, 1, 3, 0, 2, 1, 1, 0, 2] },
-  { name: 'Thanweer', scores: [0, 1, 1, 2, 1, 0, 2, 2, 3, 0, 0, 1, 1, 2, 1, 1, 3, 2] },
-  { name: 'Ashiq', scores: [0, 0, 3, 3, 1, 0, 2, 2, 2, 0, 0, 2, 0, 2, 1, 2, 2, 0] },
-  { name: 'Appunni', scores: [1, 2, 2, 3, 0, 1, 1, 2, 1, 0, 0, 3, 1, 1, 1, 0, 1, 1] },
-  { name: 'Sanjesh', scores: [0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 1, 2, 1, 3, 1, 1, 2, 2] },
-  { name: 'Thariq', scores: [0, 2, 1, 3, 1, 0, 1, 2, 2, 2, 0, 1, 1, 0, 0, 1, 1, 2] },
-  { name: 'Shemeed', scores: [0, 0, 1, 2, 0, 1, 3, 1, 2, 0, 0, 1, 0, 0, 2, 2, 2, 2] },
-  { name: 'Praveen', scores: [0, 0, 0, 0, 1, 2, 1, 2, 2, 0, 1, 1, 0, 1, 1, 2, 2, 1] },
-  { name: 'Shibili', scores: [0, 1, 0, 0, 0, 0, 1, 1, 0, 2, 0, 3, 0, 2, 1, 2, 2, 2] },
-  { name: 'Prajeesh', scores: [0, 1, 0, 1, 1, 0, 0, 2, 0, 0, 1, 1, 0, 2, 1, 2, 2, 1] },
-  { name: 'Midhilaj', scores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 2, 1, 1, 2, 2] },
-  { name: 'Rony', scores: [0, 0, 0, 2, 1, 2, 1, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0] },
-  { name: 'Midhun', scores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 1] },
-  { name: 'Vishnu', scores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0] },
-  { name: 'Jessin', scores: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
-];
 
 interface DashboardProps {
   participants: Participant[];
@@ -47,66 +14,6 @@ interface DashboardProps {
 
 export function Dashboard({ participants, questions, answers, onNavigate }: DashboardProps) {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  const missingParticipants = OFFICIAL_SCORES.filter(
-    off => !participants.some(p => p.name.trim().toLowerCase() === off.name.trim().toLowerCase())
-  );
-
-  const outOfSyncParticipants = OFFICIAL_SCORES.filter(off => {
-    const p = participants.find(x => x.name.trim().toLowerCase() === off.name.trim().toLowerCase());
-    if (!p) return false;
-    const officialSum = off.scores.reduce((a, b) => a + b, 0);
-    return p.dailyPoints !== officialSum;
-  });
-
-  const handleSyncSpreadsheet = async () => {
-    setIsSyncing(true);
-    try {
-      const batch = writeBatch(db);
-      let updatedCount = 0;
-      let createdCount = 0;
-
-      for (const official of OFFICIAL_SCORES) {
-        const sum = official.scores.reduce((a, b) => a + b, 0);
-        const existing = participants.find(
-          p => p.name.trim().toLowerCase() === official.name.trim().toLowerCase()
-        );
-
-        if (existing) {
-          const docRef = doc(db, 'participants', existing.id);
-          batch.set(docRef, {
-            ...existing,
-            dailyScores: official.scores,
-            dailyPoints: sum
-          });
-          updatedCount++;
-        } else {
-          const id = Date.now().toString() + Math.random().toString().substring(2, 6);
-          const uniqueId = Math.floor(1000 + Math.random() * 9000).toString();
-          const docRef = doc(db, 'participants', id);
-          batch.set(docRef, {
-            id,
-            name: official.name,
-            uniqueId,
-            dailyPoints: sum,
-            bonusPoints: 0,
-            bumperPoints: 0,
-            dailyScores: official.scores
-          });
-          createdCount++;
-        }
-      }
-
-      await batch.commit();
-      toast.success(`Successfully synced scores! Updated ${updatedCount} and created ${createdCount} participants.`);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to sync scores: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const activeQuestions = questions.filter(q => q.status === 'active').length;
   
@@ -187,55 +94,6 @@ export function Dashboard({ participants, questions, answers, onNavigate }: Dash
             <p className="text-2xl md:text-3xl font-bold text-slate-900">{activeQuestions}</p>
           </div>
         </div>
-      </div>
-
-      {/* Spreadsheet Sync Banner */}
-      <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-amber-800 font-bold">
-            <Database className="w-5 h-5 text-amber-600" />
-            <span>Official Spreadsheet Data Sync (Upto Day 18)</span>
-          </div>
-          <p className="text-slate-600 text-sm max-w-2xl leading-relaxed">
-            Ensure all 30 participants have completely precise daily scores matching the official World Cup 2026 spreadsheet. 
-            This dynamically scans for mismatches, updates outdated daily records, creates missing participants, and automatically aggregates their daily totals.
-          </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs font-semibold text-slate-500">
-            <span className="flex items-center gap-1">
-              <CheckCircle className="w-4 h-4 text-emerald-500" />
-              Spreadsheet Target: 30 participants
-            </span>
-            {missingParticipants.length > 0 && (
-              <span className="flex items-center gap-1 text-red-600">
-                <AlertTriangle className="w-4 h-4" />
-                {missingParticipants.length} missing in database
-              </span>
-            )}
-            {outOfSyncParticipants.length > 0 ? (
-              <span className="flex items-center gap-1 text-amber-600">
-                <AlertTriangle className="w-4 h-4" />
-                {outOfSyncParticipants.length} with mismatched points
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-emerald-600">
-                <CheckCircle className="w-4 h-4" />
-                All existing matches synced
-              </span>
-            )}
-          </div>
-        </div>
-        <button
-          onClick={handleSyncSpreadsheet}
-          disabled={isSyncing}
-          className={`flex items-center justify-center gap-2 font-bold px-5 py-3 rounded-xl shadow-sm text-sm shrink-0 transition-all ${
-            isSyncing 
-              ? 'bg-amber-100 text-amber-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white hover:shadow-md cursor-pointer active:scale-98'
-          }`}
-        >
-          <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-          {isSyncing ? 'Syncing Scores...' : 'Apply Official Scores'}
-        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-6 md:gap-8">

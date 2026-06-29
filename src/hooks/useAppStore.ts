@@ -54,6 +54,7 @@ export function useAppStore() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -124,23 +125,26 @@ export function useAppStore() {
         setIsLoading(false);
       });
 
-    const unsubParticipants = onSnapshot(collection(db, 'participants'), (snap) => {
+    const unsubParticipants = onSnapshot(collection(db, 'participants'), { includeMetadataChanges: true }, (snap) => {
       setParticipants(snap.docs.map(d => ({ ...d.data(), id: d.id } as Participant)));
+      setIsSyncing(snap.metadata.hasPendingWrites);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'participants');
     });
 
-    const unsubQuestions = onSnapshot(collection(db, 'questions'), (snap) => {
+    const unsubQuestions = onSnapshot(collection(db, 'questions'), { includeMetadataChanges: true }, (snap) => {
       setQuestions(snap.docs.map(d => ({ ...d.data(), id: d.id } as Question)).sort((a, b) => {
         // preserve sorting
         return a.date.localeCompare(b.date) || a.text.localeCompare(b.text);
       }));
+      setIsSyncing(prev => prev || snap.metadata.hasPendingWrites);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'questions');
     });
 
-    const unsubAnswers = onSnapshot(collection(db, 'answers'), (snap) => {
+    const unsubAnswers = onSnapshot(collection(db, 'answers'), { includeMetadataChanges: true }, (snap) => {
       setAnswers(snap.docs.map(d => ({ ...d.data(), id: d.id } as Answer)));
+      setIsSyncing(prev => prev || snap.metadata.hasPendingWrites);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'answers');
     });
@@ -316,6 +320,7 @@ export function useAppStore() {
     questions,
     answers,
     isLoading,
+    isSyncing,
     updateParticipantScore,
     addParticipant,
     updateParticipantName,

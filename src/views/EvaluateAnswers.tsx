@@ -288,6 +288,35 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     document.body.removeChild(link);
   };
 
+  const handleExportSpecificQuestion = (question: Question) => {
+    const header = ['User', question.title || `Q${question.id.substring(0,4)}`];
+    const rows = participants.map(p => {
+      const ans = answers.find(a => a.questionId === question.id && a.participantId === p.id);
+      let text = ans ? ans.answer : 'No Answer';
+      if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+        text = `"${text.replace(/"/g, '""')}"`;
+      }
+      return [
+        `"${p.name.replace(/"/g, '""')}"`,
+        text
+      ];
+    });
+
+    const csvContent = [
+      header.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `answers_${question.title || 'Q'}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
@@ -350,13 +379,22 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                   <div className="p-4 sm:p-6 animate-in slide-in-from-top-2 fade-in duration-300 border-t border-slate-100 bg-white">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                       <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Evaluation Options</h4>
-                      <button
-                        onClick={handleSkipEvaluation}
-                        disabled={isUpdating}
-                        className="shrink-0 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        Skip & Mark Evaluated
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleExportSpecificQuestion(selectedQuestion)}
+                          className="shrink-0 px-4 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Export Answers
+                        </button>
+                        <button
+                          onClick={handleSkipEvaluation}
+                          disabled={isUpdating}
+                          className="shrink-0 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          Skip & Mark Evaluated
+                        </button>
+                      </div>
                     </div>
 
                     {/* Mode Switcher */}
