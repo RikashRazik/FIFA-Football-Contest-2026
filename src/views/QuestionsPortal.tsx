@@ -189,6 +189,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     const [editManualInputCount, setEditManualInputCount] = useState(q.manualInputCount || 1);
     const [editMaxSelections, setEditMaxSelections] = useState(q.maxSelections || 2);
     const [editIsActivatedNow, setEditIsActivatedNow] = useState(q.isActivatedNow || false);
+    const [editType, setEditType] = useState<QuestionType>(q.type);
 
     const handleSave = () => {
       const formattedText = formatQuestionText(editText);
@@ -196,7 +197,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       
       const updatedFields: any = {
         text: formattedText,
-        title: editTitle.trim()
+        title: editTitle.trim(),
+        type: editType
       };
       
       if (!q.isManualInput && validOptions.length > 0) {
@@ -280,6 +282,21 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                 onChange={(e) => setEditEndTime(e.target.value)}
                 className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all w-full max-w-xs"
               />
+            </div>
+            
+            <div className="flex items-center gap-3 mt-2">
+              <label className="text-sm font-medium text-slate-700 w-32 shrink-0">Question Type:</label>
+              <select
+                value={editType}
+                onChange={(e) => setEditType(e.target.value as QuestionType)}
+                className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all w-full max-w-xs text-sm"
+              >
+                <option value="daily">Daily</option>
+                <option value="bonus">Bonus</option>
+                <option value="bumper">Bumper</option>
+                <option value="special">Special</option>
+                <option value="multiple_choice">Multiple Choice</option>
+              </select>
             </div>
             
             <div className="flex items-center gap-3 mt-2">

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Participant, Question, Answer } from '../types';
-import { Users, Trophy, HelpCircle, ArrowUpRight, Activity, Clock, X } from 'lucide-react';
+import { Users, Trophy, HelpCircle, ArrowUpRight, Activity, Clock, X, CheckSquare, AlertCircle, Calendar } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
+import { getDynamicQuestionStatus, isQuestionTimedOut } from '../utils';
 
 interface DashboardProps {
   participants: Participant[];
@@ -15,8 +16,16 @@ interface DashboardProps {
 export function Dashboard({ participants, questions, answers, onNavigate }: DashboardProps) {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
-  const activeQuestions = questions.filter(q => q.status === 'active').length;
+  const exactActiveQuestion = questions.find(q => getDynamicQuestionStatus(q) === 'active' && !isQuestionTimedOut(q));
+  const pendingEvaluationCount = questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !q.isEvaluated && isQuestionTimedOut(q)).length;
+  const totalQuestionsAsked = questions.filter(q => getDynamicQuestionStatus(q) === 'past' || getDynamicQuestionStatus(q) === 'active').length;
   
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startDay = new Date(2026, 5, 11); // June 11, 2026
+  startDay.setHours(0, 0, 0, 0);
+  const totalDays = Math.max(1, Math.floor((today.getTime() - startDay.getTime()) / (1000 * 3600 * 24)) + 1);
+
   const participantsWithTotals = participants.map(p => ({
     ...p,
     total: p.dailyPoints + p.bonusPoints + p.bumperPoints
@@ -61,37 +70,65 @@ export function Dashboard({ participants, questions, answers, onNavigate }: Dash
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 md:gap-5 hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
-          <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center shrink-0 relative z-10">
-            <Users className="w-6 h-6 md:w-7 md:h-7 text-indigo-700" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-5">
+        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center shrink-0 relative z-10">
+            <Users className="w-5 h-5 md:w-6 md:h-6 text-indigo-700" />
           </div>
-          <div className="relative z-10">
-            <p className="text-xs md:text-sm font-medium text-slate-500 uppercase tracking-wider">Total Participants</p>
-            <p className="text-2xl md:text-3xl font-bold text-slate-900">{participants.length}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 md:gap-5 hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
-          <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center shrink-0 relative z-10">
-            <Trophy className="w-6 h-6 md:w-7 md:h-7 text-emerald-700" />
-          </div>
-          <div className="relative z-10">
-            <p className="text-xs md:text-sm font-medium text-slate-500 uppercase tracking-wider">Points Awarded</p>
-            <p className="text-2xl md:text-3xl font-bold text-slate-900">{totalPointsAwarded}</p>
+          <div className="relative z-10 flex-1 min-w-0">
+            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Total Participants</p>
+            <p className="text-xl md:text-2xl font-bold text-slate-900">{participants.length}</p>
           </div>
         </div>
 
-        <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 md:gap-5 hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
-          <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center shrink-0 relative z-10">
-            <HelpCircle className="w-6 h-6 md:w-7 md:h-7 text-amber-700" />
+        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center shrink-0 relative z-10">
+            <Activity className="w-5 h-5 md:w-6 md:h-6 text-emerald-700" />
           </div>
-          <div className="relative z-10">
-            <p className="text-xs md:text-sm font-medium text-slate-500 uppercase tracking-wider">Active Questions</p>
-            <p className="text-2xl md:text-3xl font-bold text-slate-900">{activeQuestions}</p>
+          <div className="relative z-10 flex-1 min-w-0">
+            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Active Question</p>
+            {exactActiveQuestion ? (
+              <p className="text-sm font-bold text-emerald-700 truncate" title={exactActiveQuestion.text}>
+                {exactActiveQuestion.title ? `${exactActiveQuestion.title}: ` : ''}{exactActiveQuestion.text}
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-slate-400">No active question</p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-amber-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center shrink-0 relative z-10">
+            <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-amber-700" />
+          </div>
+          <div className="relative z-10 flex-1 min-w-0">
+            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Pending Evaluation</p>
+            <p className="text-xl md:text-2xl font-bold text-slate-900">{pendingEvaluationCount}</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center shrink-0 relative z-10">
+            <CheckSquare className="w-5 h-5 md:w-6 md:h-6 text-blue-700" />
+          </div>
+          <div className="relative z-10 flex-1 min-w-0">
+            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Questions Asked</p>
+            <p className="text-xl md:text-2xl font-bold text-slate-900">{totalQuestionsAsked}</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center shrink-0 relative z-10">
+            <Calendar className="w-5 h-5 md:w-6 md:h-6 text-purple-700" />
+          </div>
+          <div className="relative z-10 flex-1 min-w-0">
+            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Total Days</p>
+            <p className="text-xl md:text-2xl font-bold text-slate-900">{totalDays}</p>
           </div>
         </div>
       </div>
