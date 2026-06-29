@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Participant } from '../types';
-import { Search, Plus, Minus, UserPlus, Edit2, Check, X, Trash2, Users, MoreVertical, Download } from 'lucide-react';
+import { Search, Plus, Minus, UserPlus, Edit2, Check, X, Trash2, Users, MoreVertical, Download, ArrowDownAZ, Clock } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { ExportModal } from '../components/ExportModal';
 import { toast } from 'react-hot-toast';
@@ -25,6 +25,7 @@ export function UserManager({
   onParticipantClick
 }: UserManagerProps) {
   const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<'alphabetical' | 'recent'>('recent');
   const [newUserName, setNewUserName] = useState('');
   
   const [selectedUser, setSelectedUser] = useState<Participant | null>(null);
@@ -39,7 +40,16 @@ export function UserManager({
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [generatedUserId, setGeneratedUserId] = useState<string | null>(null);
 
-  const filtered = participants.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const sortedParticipants = [...participants].sort((a, b) => {
+    if (sortOrder === 'alphabetical') {
+      return a.name.localeCompare(b.name);
+    } else {
+      // Recent first (id is timestamp)
+      return b.id.localeCompare(a.id);
+    }
+  });
+
+  const filtered = sortedParticipants.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,21 +140,31 @@ export function UserManager({
         </div>
       </div>
 
-      <div className="flex justify-end gap-3">
-        <button 
-          onClick={() => setIsExportModalOpen(true)}
-          className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 px-4 py-2.5 rounded-lg transition-all shadow-sm flex items-center gap-2 font-medium text-sm"
-          title="Export Users"
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+        <button
+          onClick={() => setSortOrder(prev => prev === 'alphabetical' ? 'recent' : 'alphabetical')}
+          className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 px-4 py-2.5 rounded-lg transition-all shadow-sm flex items-center gap-2 font-medium text-sm self-start sm:self-auto shrink-0"
+          title={`Sort by ${sortOrder === 'alphabetical' ? 'Recently Added' : 'Alphabetical'}`}
         >
-          <Download className="w-4 h-4" /> Export
+          {sortOrder === 'alphabetical' ? <ArrowDownAZ className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+          {sortOrder === 'alphabetical' ? 'Alphabetical' : 'Recently Added'}
         </button>
-        <button 
-          onClick={() => setIsAddUserModalOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 font-medium text-sm"
-          title="Add New Participant"
-        >
-          <UserPlus className="w-4 h-4" /> Add Participant
-        </button>
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={() => setIsExportModalOpen(true)}
+            className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 px-4 py-2.5 rounded-lg transition-all shadow-sm flex items-center gap-2 font-medium text-sm"
+            title="Export Users"
+          >
+            <Download className="w-4 h-4" /> Export
+          </button>
+          <button 
+            onClick={() => setIsAddUserModalOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 font-medium text-sm"
+            title="Add New Participant"
+          >
+            <UserPlus className="w-4 h-4" /> Add Participant
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

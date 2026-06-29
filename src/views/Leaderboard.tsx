@@ -5,7 +5,7 @@ import * as htmlToImage from 'html-to-image';
 
 interface LeaderboardProps {
   participants: Participant[];
-  updateScore: (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number) => void;
+  updateScore: (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number, dayIndex?: number) => void;
   onParticipantClick?: (participant: Participant) => void;
 }
 
@@ -170,13 +170,10 @@ export function Leaderboard({ participants, updateScore, onParticipantClick }: L
   };
 
   const toggleRow = (id: string) => {
-    // Only expand if not editing, to avoid clicking issues
-    if (!isEditingAll) {
-      setExpandedRows(prev => ({
-        ...prev,
-        [id]: !prev[id]
-      }));
-    }
+    setExpandedRows(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
   };
 
   const sorted = [...participants].map(p => ({
@@ -350,16 +347,37 @@ export function Leaderboard({ participants, updateScore, onParticipantClick }: L
                     {isExpanded && (
                       <tr className="bg-slate-50/80 border-b border-slate-100">
                         <td colSpan={7} className="py-4 px-6">
-                          <div className="flex flex-wrap gap-2 text-sm">
+                          <div className="flex flex-wrap items-center gap-2 text-sm">
                             {p.dailyScores && p.dailyScores.length > 0 ? (
                               p.dailyScores.map((score, dayIndex) => (
                                 <div key={dayIndex} className="flex flex-col items-center bg-white border border-slate-200 rounded-md p-2 min-w-[3rem] shadow-sm">
                                   <span className="text-xs text-slate-500 font-medium mb-1">D{dayIndex + 1}</span>
-                                  <span className={`font-mono font-bold ${score > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>{score}</span>
+                                  {isEditingAll ? (
+                                    <ScoreControl 
+                                      value={score}
+                                      onDecrease={() => updateScore(p.id, 'dailyPoints', -1, dayIndex)}
+                                      onIncrease={() => updateScore(p.id, 'dailyPoints', 1, dayIndex)}
+                                    />
+                                  ) : (
+                                    <span className={`font-mono font-bold ${score > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>{score}</span>
+                                  )}
                                 </div>
                               ))
                             ) : (
-                              <span className="text-slate-500 text-sm italic">No daily breakdown available.</span>
+                              !isEditingAll && <span className="text-slate-500 text-sm italic">No daily breakdown available.</span>
+                            )}
+                            {isEditingAll && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateScore(p.id, 'dailyPoints', 0, p.dailyScores?.length || 0);
+                                }}
+                                className="flex flex-col items-center justify-center bg-white border border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 rounded-md p-2 min-w-[3rem] h-full min-h-[52px] shadow-sm transition-colors group cursor-pointer"
+                                title="Add Day"
+                              >
+                                <Plus className="w-5 h-5 text-slate-400 group-hover:text-indigo-500" />
+                                <span className="text-[10px] font-medium text-slate-400 group-hover:text-indigo-500 mt-0.5">Add</span>
+                              </button>
                             )}
                           </div>
                         </td>

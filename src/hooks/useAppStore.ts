@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Participant, Question, Answer } from '../types';
 import { db, auth } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 
 enum OperationType {
   CREATE = 'create',
@@ -154,9 +154,11 @@ export function useAppStore() {
 
   const updateParticipantScore = async (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number, dayIndex?: number) => {
     try {
-      const participant = participants.find(p => p.id === id);
-      if (!participant) return;
-      const newScore = Math.max(0, participant[category] + delta);
+      const docRef = doc(db, 'participants', id);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return;
+      const participant = snap.data() as Participant;
+      const newScore = Math.max(0, (participant[category] || 0) + delta);
       
       const updates: any = { [category]: newScore };
       if (category === 'dailyPoints' && dayIndex !== undefined) {
@@ -164,11 +166,11 @@ export function useAppStore() {
         while (newDailyScores.length <= dayIndex) {
           newDailyScores.push(0);
         }
-        newDailyScores[dayIndex] = Math.max(0, newDailyScores[dayIndex] + delta);
+        newDailyScores[dayIndex] = Math.max(0, (newDailyScores[dayIndex] || 0) + delta);
         updates.dailyScores = newDailyScores;
       }
       
-      await setDoc(doc(db, 'participants', id), { ...participant, ...updates });
+      await updateDoc(docRef, updates);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }
@@ -196,9 +198,8 @@ export function useAppStore() {
 
   const updateParticipantName = async (id: string, name: string) => {
     try {
-      const participant = participants.find(p => p.id === id);
-      if (!participant) return;
-      await setDoc(doc(db, 'participants', id), { ...participant, name });
+      const docRef = doc(db, 'participants', id);
+      await updateDoc(docRef, { name });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }
@@ -206,15 +207,18 @@ export function useAppStore() {
 
   const updateParticipantDailyScore = async (id: string, dayIndex: number, score: number) => {
     try {
-      const participant = participants.find(p => p.id === id);
-      if (!participant) return;
+      const docRef = doc(db, 'participants', id);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return;
+      const participant = snap.data() as Participant;
+      
       const newDailyScores = [...(participant.dailyScores || [])];
       while (newDailyScores.length <= dayIndex) {
         newDailyScores.push(0);
       }
       newDailyScores[dayIndex] = Math.max(0, score);
       const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
-      await setDoc(doc(db, 'participants', id), { ...participant, dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+      await updateDoc(docRef, { dailyScores: newDailyScores, dailyPoints: newDailyPoints });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }
@@ -222,12 +226,17 @@ export function useAppStore() {
 
   const removeParticipantDailyScore = async (id: string, dayIndex: number) => {
     try {
-      const participant = participants.find(p => p.id === id);
-      if (!participant) return;
+      const docRef = doc(db, 'participants', id);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return;
+      const participant = snap.data() as Participant;
+      
       const newDailyScores = [...(participant.dailyScores || [])];
-      newDailyScores.splice(dayIndex, 1);
+      if (dayIndex >= 0 && dayIndex < newDailyScores.length) {
+        newDailyScores.splice(dayIndex, 1);
+      }
       const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
-      await setDoc(doc(db, 'participants', id), { ...participant, dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+      await updateDoc(docRef, { dailyScores: newDailyScores, dailyPoints: newDailyPoints });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }
@@ -253,9 +262,8 @@ export function useAppStore() {
 
   const updateQuestion = async (id: string, updatedFields: Partial<Omit<Question, 'id'>>) => {
     try {
-      const question = questions.find(q => q.id === id);
-      if (!question) return;
-      await setDoc(doc(db, 'questions', id), { ...question, ...updatedFields });
+      const docRef = doc(db, 'questions', id);
+      await updateDoc(docRef, updatedFields);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'questions');
     }
@@ -271,15 +279,21 @@ export function useAppStore() {
 
   const addAnswer = async (questionId: string, participantId: string, answer: string) => {
     try {
-      const id = Date.now().toString();
-      const newAnswer: Answer = {
-        id,
-        questionId,
-        participantId,
-        answer,
-        timestamp: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'answers', id), newAnswer);
+      const existingAnswer = answers.find(a => a.questionId === questionId && a.participantId === participantId);
+      
+      if (existingAnswer) {
+        await updateDoc(doc(db, 'answers', existingAnswer.id), { answer, timestamp: new Date().toISOString() });
+      } else {
+        const id = Date.now().toString();
+        const newAnswer: Answer = {
+          id,
+          questionId,
+          participantId,
+          answer,
+          timestamp: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'answers', id), newAnswer);
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'answers');
     }

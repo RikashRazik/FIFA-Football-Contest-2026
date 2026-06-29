@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Question, Participant, Answer } from '../types';
-import { CheckCircle, AlertCircle, ChevronRight, Check, Settings2, Zap } from 'lucide-react';
+import { CheckCircle, AlertCircle, ChevronRight, Check, Settings2, Zap, Download } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from '../utils';
 
@@ -10,9 +10,10 @@ interface EvaluateAnswersProps {
   answers: Answer[];
   updateParticipantScore: (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number, dayIndex?: number) => void;
   updateQuestion: (id: string, updatedFields: Partial<Omit<Question, 'id'>>) => void;
+  addAnswer: (questionId: string, participantId: string, answer: string) => void;
 }
 
-export function EvaluateAnswers({ questions, participants, answers, updateParticipantScore, updateQuestion }: EvaluateAnswersProps) {
+export function EvaluateAnswers({ questions, participants, answers, updateParticipantScore, updateQuestion, addAnswer }: EvaluateAnswersProps) {
   const evaluableQuestions = questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !q.isEvaluated && isQuestionTimedOut(q));
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -26,6 +27,10 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
   const [showBulkPaste, setShowBulkPaste] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [bulkFeedback, setBulkFeedback] = useState('');
+  const [editingAnswerUserId, setEditingAnswerUserId] = useState<string | null>(null);
+  const [editedAnswerValue, setEditedAnswerValue] = useState<string>('');
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
+  const [bulkAssignValue, setBulkAssignValue] = useState<string>('');
 
   const handleParseBulk = () => {
     if (!bulkText.trim()) return;
@@ -74,6 +79,10 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     setBulkText('');
     setBulkFeedback('');
     setShowBulkPaste(false);
+    setShowBulkAssign(false);
+    setBulkAssignValue('');
+    setEditingAnswerUserId(null);
+    setEditedAnswerValue('');
     if (!q.options || q.options.length === 0) {
       setEvaluationMode('manual');
     } else {
@@ -245,121 +254,137 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     }
   };
 
+  const handleExportUserAnswers = () => {
+    // Generate CSV for all participants and their answers
+    // Only use questions that are either 'active' or 'past' 
+    const relevantQuestions = questions.filter(q => q.status !== 'upcoming');
+    const header = ['User', ...relevantQuestions.map(q => q.title || `Q${q.id.substring(0,4)}`)];
+    const rows = participants.map(p => {
+      return [
+        `"${p.name.replace(/"/g, '""')}"`,
+        ...relevantQuestions.map(q => {
+          const ans = answers.find(a => a.questionId === q.id && a.participantId === p.id);
+          let text = ans ? ans.answer : 'No Answer';
+          if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+            text = `"${text.replace(/"/g, '""')}"`;
+          }
+          return text;
+        })
+      ];
+    });
+
+    const csvContent = [
+      header.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `user_answers_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-800">Evaluate Answers</h2>
           <p className="text-slate-500 mt-1">Submit correct answers for pending questions and update the leaderboard.</p>
         </div>
+        <button
+          onClick={handleExportUserAnswers}
+          className="flex items-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2 rounded-lg font-medium transition-colors shrink-0"
+        >
+          <Download className="w-4 h-4" />
+          Export All Answers
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left Column: Active Questions List */}
-        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col max-h-[600px]">
-          <div className="p-4 border-b border-slate-100 bg-slate-50 shrink-0">
-            <h3 className="font-bold text-slate-800">Pending Evaluation</h3>
-            <p className="text-xs text-slate-500">{evaluableQuestions.length} pending question(s)</p>
+      <div className="space-y-4">
+        {evaluableQuestions.length === 0 ? (
+          <div className="text-center py-12 px-4 bg-white rounded-xl shadow-sm border border-slate-200">
+            <CheckCircle className="w-12 h-12 mx-auto mb-3 text-emerald-400" />
+            <h3 className="text-lg font-bold text-slate-800 mb-1">All caught up!</h3>
+            <p className="text-slate-500">No questions pending evaluation.</p>
           </div>
-          <div className="overflow-y-auto p-2 space-y-2">
-            {evaluableQuestions.length === 0 ? (
-              <div className="text-center py-10 px-4 text-slate-500">
-                <CheckCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                <p>No questions pending evaluation.</p>
-              </div>
-            ) : (
-              evaluableQuestions.map(q => (
+        ) : (
+          evaluableQuestions.map(q => {
+            const isSelected = selectedQuestion?.id === q.id;
+            
+            return (
+              <div key={q.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300">
                 <button
-                  key={q.id}
                   onClick={() => handleSelectQuestion(q)}
-                  className={`w-full text-left p-4 rounded-lg border transition-all ${
-                    selectedQuestion?.id === q.id 
-                      ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500' 
-                      : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
+                  className={`w-full text-left p-4 sm:p-6 transition-colors ${
+                    isSelected ? 'bg-indigo-50/50 border-b border-indigo-100' : 'hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex justify-between items-start gap-2">
+                  <div className="flex justify-between items-start gap-4">
                     <div className="flex-1">
-                      {q.title && (
-                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded mb-1 inline-block">
-                          {q.title}
-                        </div>
-                      )}
-                      <p className="text-sm font-medium text-slate-800 line-clamp-2">{q.text}</p>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {q.title && (
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-100/50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                            {q.title}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                          {q.type} Question
+                        </span>
+                        <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          {q.points} pts
+                        </span>
+                      </div>
+                      <h3 className={`text-lg font-bold line-clamp-2 ${isSelected ? 'text-indigo-950' : 'text-slate-800'}`}>{q.text}</h3>
                     </div>
-                    <ChevronRight className={`w-4 h-4 shrink-0 ${selectedQuestion?.id === q.id ? 'text-indigo-600' : 'text-slate-400'}`} />
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">
-                      {q.type}
-                    </span>
-                    <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      {q.points} pts
-                    </span>
+                    <div className={`p-2 rounded-full transition-transform duration-300 shrink-0 ${isSelected ? 'bg-indigo-100 text-indigo-600 rotate-90' : 'bg-slate-100 text-slate-400'}`}>
+                      <ChevronRight className="w-5 h-5" />
+                    </div>
                   </div>
                 </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Evaluation Panel */}
-        <div className="lg:col-span-2">
-          {selectedQuestion ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-slate-100 text-slate-600">
-                      {selectedQuestion.type} Question
-                    </span>
-                    <span className="text-xs font-bold px-2 py-1 rounded-md bg-emerald-100 text-emerald-700">
-                      {selectedQuestion.points} Points
-                    </span>
-                  </div>
-                  {selectedQuestion.title && (
-                    <div className="text-xs font-extrabold uppercase tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md inline-block mb-1.5">
-                      {selectedQuestion.title}
+                
+                {isSelected && (
+                  <div className="p-4 sm:p-6 animate-in slide-in-from-top-2 fade-in duration-300 border-t border-slate-100 bg-white">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                      <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Evaluation Options</h4>
+                      <button
+                        onClick={handleSkipEvaluation}
+                        disabled={isUpdating}
+                        className="shrink-0 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        Skip & Mark Evaluated
+                      </button>
                     </div>
-                  )}
-                  <h3 className="text-xl font-bold text-slate-900">{selectedQuestion.text}</h3>
-                </div>
-                <button
-                  onClick={handleSkipEvaluation}
-                  disabled={isUpdating}
-                  className="shrink-0 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  Skip & Mark Evaluated
-                </button>
-              </div>
 
-              <div className="p-6">
-                {/* Mode Switcher */}
-                <div className="flex items-center gap-2 mb-6 bg-slate-50 p-1.5 rounded-lg border border-slate-200 inline-flex">
-                  <button
-                    onClick={() => setEvaluationMode('auto')}
-                    disabled={!selectedQuestion.options || selectedQuestion.options.length === 0}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
-                      evaluationMode === 'auto' 
-                        ? 'bg-white text-slate-800 shadow-sm border border-slate-200/60' 
-                        : 'text-slate-500 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed'
-                    }`}
-                  >
-                    <Zap className="w-4 h-4" />
-                    Automatic Match
-                  </button>
-                  <button
-                    onClick={() => setEvaluationMode('manual')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
-                      evaluationMode === 'manual' 
-                        ? 'bg-white text-slate-800 shadow-sm border border-slate-200/60' 
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    <Settings2 className="w-4 h-4" />
-                    Manual Review
-                  </button>
-                </div>
+                    {/* Mode Switcher */}
+                    <div className="flex items-center gap-2 mb-6 bg-slate-50 p-1.5 rounded-lg border border-slate-200 inline-flex self-start shrink-0">
+                      <button
+                        onClick={() => setEvaluationMode('auto')}
+                        disabled={!selectedQuestion.options || selectedQuestion.options.length === 0}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
+                          evaluationMode === 'auto' 
+                            ? 'bg-white text-slate-800 shadow-sm border border-slate-200/60' 
+                            : 'text-slate-500 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed'
+                        }`}
+                      >
+                        <Zap className="w-4 h-4" />
+                        Automatic Match
+                      </button>
+                      <button
+                        onClick={() => setEvaluationMode('manual')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
+                          evaluationMode === 'manual' 
+                            ? 'bg-white text-slate-800 shadow-sm border border-slate-200/60' 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <Settings2 className="w-4 h-4" />
+                        Manual Review
+                      </button>
+                    </div>
 
                 {evaluationMode === 'auto' ? (
                   <>
@@ -418,7 +443,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                           
                           {isMC ? (
                             Object.keys(multipleChoiceScores).length > 0 ? (
-                              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 max-h-[200px] overflow-y-auto">
+                              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 overflow-y-visible">
                                 <ul className="space-y-2">
                                   {Object.entries(multipleChoiceScores).map(([pId, score]) => {
                                     const p = participants.find(part => part.id === pId);
@@ -441,7 +466,7 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                             )
                           ) : (
                             matchedParticipants.length > 0 ? (
-                              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 max-h-[200px] overflow-y-auto">
+                              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 overflow-y-visible">
                                 <ul className="space-y-2">
                                   {matchedParticipants.map(p => (
                                     <li key={p.id} className="flex justify-between items-center bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-100">
@@ -486,8 +511,8 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                     )}
                   </>
                 ) : (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                    <div>
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 flex-1 flex flex-col">
+                    <div className="shrink-0">
                       <label className="block font-semibold text-slate-800 mb-2">Correct Answer (Optional)</label>
                       {selectedQuestion.options && selectedQuestion.options.length > 0 ? (
                         <div className="relative">
@@ -517,24 +542,115 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                       <p className="text-xs text-slate-500 mt-2">This will be saved as the correct answer for reference.</p>
                     </div>
 
-                    <div className="border-t border-slate-100 pt-6">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                    <div className="border-t border-slate-100 pt-6 flex-1 flex flex-col min-h-0">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 shrink-0">
                         <h4 className="font-semibold text-slate-800 flex items-center gap-2">
                           <span>Participant Responses</span>
                           <span className="text-sm font-normal text-slate-500">
                             {answers.filter(a => a.questionId === selectedQuestion.id).length} answer(s)
                           </span>
                         </h4>
-                        <button
-                          onClick={() => setShowBulkPaste(!showBulkPaste)}
-                          className={`text-sm px-3 py-1.5 rounded-lg border font-medium transition-colors ${showBulkPaste ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                        >
-                          {showBulkPaste ? 'Hide Bulk Paste' : 'Bulk Paste Marks'}
-                        </button>
+                        <div className="flex gap-2 flex-wrap justify-end">
+                          <button
+                            onClick={() => {
+                              setShowBulkAssign(!showBulkAssign);
+                              setShowBulkPaste(false);
+                            }}
+                            className={`text-sm px-3 py-1.5 rounded-lg border font-medium transition-colors ${showBulkAssign ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                          >
+                            {showBulkAssign ? 'Hide Bulk Assign' : 'Bulk Assign Missing Answers'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowBulkPaste(!showBulkPaste);
+                              setShowBulkAssign(false);
+                            }}
+                            className={`text-sm px-3 py-1.5 rounded-lg border font-medium transition-colors ${showBulkPaste ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                          >
+                            {showBulkPaste ? 'Hide Bulk Paste' : 'Bulk Paste Marks'}
+                          </button>
+                        </div>
                       </div>
 
+                      {showBulkAssign && (
+                        <div className="mb-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 animate-in fade-in slide-in-from-top-2 shrink-0">
+                          <label className="block text-sm font-semibold text-indigo-900 mb-2">Assign Answer to All Missing Participants</label>
+                          <p className="text-xs text-indigo-700/70 mb-3">This will submit the selected answer for all participants who have "No Answer" for this question.</p>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex-1">
+                              {selectedQuestion.options && selectedQuestion.options.length > 0 ? (
+                                isMC ? (
+                                  <div className="flex flex-wrap gap-2 text-sm">
+                                    {selectedQuestion.options.map((opt, i) => {
+                                      const isChecked = bulkAssignValue.split(' | ').includes(opt);
+                                      return (
+                                        <label key={i} className="flex items-center gap-1 bg-white px-2 py-1 border border-slate-200 rounded cursor-pointer hover:bg-slate-50">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={isChecked}
+                                            onChange={(e) => {
+                                              const currentAnswers = bulkAssignValue ? bulkAssignValue.split(' | ').filter(Boolean) : [];
+                                              if (e.target.checked) {
+                                                setBulkAssignValue([...currentAnswers, opt].join(' | '));
+                                              } else {
+                                                setBulkAssignValue(currentAnswers.filter(a => a !== opt).join(' | '));
+                                              }
+                                            }}
+                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                          />
+                                          <span className="text-slate-700">{opt}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <select
+                                    value={bulkAssignValue}
+                                    onChange={(e) => setBulkAssignValue(e.target.value)}
+                                    className="w-full text-sm px-3 py-2 rounded border border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
+                                  >
+                                    <option value="" disabled>Select an option...</option>
+                                    {selectedQuestion.options.map((opt, i) => (
+                                      <option key={i} value={opt}>{opt}</option>
+                                    ))}
+                                  </select>
+                                )
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={bulkAssignValue}
+                                  onChange={(e) => setBulkAssignValue(e.target.value)}
+                                  placeholder="Enter answer for all missing participants..."
+                                  className="w-full text-sm px-3 py-2 rounded border border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                />
+                              )}
+                            </div>
+                            <button
+                              onClick={() => {
+                                if (!bulkAssignValue.trim()) return;
+                                let count = 0;
+                                participants.forEach(p => {
+                                  const ans = answers.find(a => a.questionId === selectedQuestion.id && a.participantId === p.id);
+                                  if (!ans) {
+                                    addAnswer(selectedQuestion.id, p.id, bulkAssignValue.trim());
+                                    count++;
+                                  }
+                                });
+                                toast.success(`Assigned answer to ${count} participants!`);
+                                setBulkAssignValue('');
+                                setShowBulkAssign(false);
+                              }}
+                              disabled={!bulkAssignValue.trim()}
+                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap shrink-0"
+                            >
+                              Assign to Missing
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {showBulkPaste && (
-                        <div className="mb-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 animate-in fade-in slide-in-from-top-2">
+                        <div className="mb-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 animate-in fade-in slide-in-from-top-2 shrink-0">
                           <label className="block text-sm font-semibold text-indigo-900 mb-2">Paste Marks</label>
                           <p className="text-xs text-indigo-700/70 mb-3">Format: Name followed by points (e.g. "1. John Doe - 2"). The system will extract the name and the last number on each line.</p>
                           <textarea
@@ -560,39 +676,123 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                         </div>
                       )}
                       
-                      <div className="bg-slate-50 rounded-xl border border-slate-200 p-2 max-h-[400px] overflow-y-auto">
+                      <div className="bg-slate-50 rounded-xl border border-slate-200 p-2 overflow-y-visible">
                         <ul className="space-y-2">
                           {participants.map(p => {
                             const ans = answers.find(a => a.questionId === selectedQuestion.id && a.participantId === p.id);
                             return (
                               <li key={p.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white px-4 py-3 rounded-lg shadow-sm border border-slate-100 gap-3">
-                                <div className="flex-1">
+                                <div className="flex-1 w-full">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="font-medium text-slate-800">{p.name}</span>
-                                    {!ans && <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">No Answer</span>}
+                                    {!ans && editingAnswerUserId !== p.id && <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">No Answer</span>}
+                                    {editingAnswerUserId !== p.id && (
+                                      <button 
+                                        onClick={() => {
+                                          setEditingAnswerUserId(p.id);
+                                          setEditedAnswerValue(ans ? ans.answer : '');
+                                        }}
+                                        className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded uppercase transition-colors ml-2"
+                                      >
+                                        {ans ? 'Edit Answer' : 'Add Answer'}
+                                      </button>
+                                    )}
                                   </div>
-                                  {ans && (
-                                    <div className="text-sm text-slate-600 bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">
-                                      {(() => {
-                                        if (selectedQuestion.options) {
-                                          if (isMC) {
-                                            // Split answers, find indices
-                                            const parts = ans.answer.split(' | ');
-                                            const indices = parts.map(part => {
-                                              const idx = selectedQuestion.options?.indexOf(part);
-                                              return idx !== undefined && idx !== -1 ? `${idx + 1}` : '';
-                                            }).filter(Boolean);
-                                            return indices.length > 0 ? `Option(s) ${indices.join(', ')} - ${ans.answer}` : ans.answer;
-                                          } else {
-                                            const optIndex = selectedQuestion.options.indexOf(ans.answer);
-                                            if (optIndex !== -1) {
-                                              return `Option ${String.fromCharCode(65 + optIndex)} - ${ans.answer}`;
+                                  
+                                  {editingAnswerUserId === p.id ? (
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-2 w-full">
+                                      <div className="flex-1 w-full">
+                                        {selectedQuestion.options && selectedQuestion.options.length > 0 ? (
+                                          isMC ? (
+                                            <div className="flex flex-wrap gap-2 text-sm">
+                                              {selectedQuestion.options.map((opt, i) => {
+                                                const isChecked = editedAnswerValue.split(' | ').includes(opt);
+                                                return (
+                                                  <label key={i} className="flex items-center gap-1 bg-slate-50 px-2 py-1 border border-slate-200 rounded cursor-pointer hover:bg-slate-100">
+                                                    <input 
+                                                      type="checkbox" 
+                                                      checked={isChecked}
+                                                      onChange={(e) => {
+                                                        const currentAnswers = editedAnswerValue ? editedAnswerValue.split(' | ').filter(Boolean) : [];
+                                                        if (e.target.checked) {
+                                                          setEditedAnswerValue([...currentAnswers, opt].join(' | '));
+                                                        } else {
+                                                          setEditedAnswerValue(currentAnswers.filter(a => a !== opt).join(' | '));
+                                                        }
+                                                      }}
+                                                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span className="text-slate-700">{opt}</span>
+                                                  </label>
+                                                );
+                                              })}
+                                            </div>
+                                          ) : (
+                                            <select
+                                              value={editedAnswerValue}
+                                              onChange={(e) => setEditedAnswerValue(e.target.value)}
+                                              className="w-full text-sm px-2 py-1.5 rounded border border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
+                                            >
+                                              <option value="" disabled>Select an option...</option>
+                                              {selectedQuestion.options.map((opt, i) => (
+                                                <option key={i} value={opt}>{opt}</option>
+                                              ))}
+                                            </select>
+                                          )
+                                        ) : (
+                                          <input
+                                            type="text"
+                                            value={editedAnswerValue}
+                                            onChange={(e) => setEditedAnswerValue(e.target.value)}
+                                            placeholder="Enter answer..."
+                                            className="w-full text-sm px-2 py-1.5 rounded border border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                          />
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0">
+                                        <button
+                                          onClick={() => {
+                                            if (editedAnswerValue.trim()) {
+                                              addAnswer(selectedQuestion.id, p.id, editedAnswerValue.trim());
+                                              toast.success('Answer saved!');
+                                            }
+                                            setEditingAnswerUserId(null);
+                                          }}
+                                          className="text-xs font-semibold px-3 py-1.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={() => setEditingAnswerUserId(null)}
+                                          className="text-xs font-semibold px-3 py-1.5 rounded bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    ans && (
+                                      <div className="text-sm text-slate-600 bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">
+                                        {(() => {
+                                          if (selectedQuestion.options) {
+                                            if (isMC) {
+                                              const parts = ans.answer.split(' | ');
+                                              const indices = parts.map(part => {
+                                                const idx = selectedQuestion.options?.indexOf(part);
+                                                return idx !== undefined && idx !== -1 ? `${idx + 1}` : '';
+                                              }).filter(Boolean);
+                                              return indices.length > 0 ? `Option(s) ${indices.join(', ')} - ${ans.answer}` : ans.answer;
+                                            } else {
+                                              const optIndex = selectedQuestion.options.indexOf(ans.answer);
+                                              if (optIndex !== -1) {
+                                                return `Option ${String.fromCharCode(65 + optIndex)} - ${ans.answer}`;
+                                              }
                                             }
                                           }
-                                        }
-                                        return ans.answer;
-                                      })()}
-                                    </div>
+                                          return ans.answer;
+                                        })()}
+                                      </div>
+                                    )
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
@@ -644,18 +844,12 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                     </div>
                   </div>
                 )}
+                  </div>
+                )}
               </div>
-            </div>
-          ) : (
-            <div className="h-full min-h-[400px] flex items-center justify-center bg-slate-50 rounded-xl border border-slate-200 border-dashed">
-              <div className="text-center text-slate-500 max-w-sm px-6">
-                <CheckCircle className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                <h3 className="text-lg font-medium text-slate-700 mb-2">Select a Question</h3>
-                <p className="text-sm text-slate-500">Choose a pending question from the list to evaluate the answers and update the leaderboard.</p>
-              </div>
-            </div>
-          )}
-        </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

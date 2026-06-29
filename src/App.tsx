@@ -220,6 +220,7 @@ export default function App() {
                   answers={store.answers}
                   updateParticipantScore={store.updateParticipantScore}
                   updateQuestion={store.updateQuestion}
+                  addAnswer={store.addAnswer}
                 />
               )}
             </motion.div>
