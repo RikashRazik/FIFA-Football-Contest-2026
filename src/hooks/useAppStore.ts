@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Participant, Question, Answer } from '../types';
 import { db, auth } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, getDoc, updateDoc, runTransaction } from 'firebase/firestore';
 
 enum OperationType {
   CREATE = 'create',
@@ -156,25 +156,52 @@ export function useAppStore() {
     };
   }, []);
 
+  const forceRefresh = async () => {
+    setIsSyncing(true);
+    try {
+      const [pSnap, qSnap, aSnap] = await Promise.all([
+        getDocs(collection(db, 'participants')),
+        getDocs(collection(db, 'questions')),
+        getDocs(collection(db, 'answers'))
+      ]);
+      
+      setParticipants(pSnap.docs.map(d => ({ ...d.data(), id: d.id } as Participant)));
+      
+      setQuestions(qSnap.docs.map(d => ({ ...d.data(), id: d.id } as Question)).sort((a, b) => {
+        return a.date.localeCompare(b.date) || a.text.localeCompare(b.text);
+      }));
+      
+      setAnswers(aSnap.docs.map(d => ({ ...d.data(), id: d.id } as Answer)));
+    } catch (err) {
+      console.error("Force refresh failed", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const updateParticipantScore = async (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number, dayIndex?: number) => {
     try {
       const docRef = doc(db, 'participants', id);
-      const snap = await getDoc(docRef);
-      if (!snap.exists()) return;
-      const participant = snap.data() as Participant;
-      const newScore = Math.max(0, (participant[category] || 0) + delta);
-      
-      const updates: any = { [category]: newScore };
-      if (category === 'dailyPoints' && dayIndex !== undefined) {
-        const newDailyScores = [...(participant.dailyScores || [])];
-        while (newDailyScores.length <= dayIndex) {
-          newDailyScores.push(0);
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(docRef);
+        if (!snap.exists()) return;
+        const participant = snap.data() as Participant;
+        
+        const updates: any = {};
+        if (category === 'dailyPoints' && dayIndex !== undefined) {
+          const newDailyScores = [...(participant.dailyScores || [])];
+          while (newDailyScores.length <= dayIndex) {
+            newDailyScores.push(0);
+          }
+          newDailyScores[dayIndex] = Math.max(0, (newDailyScores[dayIndex] || 0) + delta);
+          updates.dailyScores = newDailyScores;
+          updates.dailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
+        } else {
+          updates[category] = Math.max(0, (participant[category] || 0) + delta);
         }
-        newDailyScores[dayIndex] = Math.max(0, (newDailyScores[dayIndex] || 0) + delta);
-        updates.dailyScores = newDailyScores;
-      }
-      
-      await updateDoc(docRef, updates);
+        
+        transaction.update(docRef, updates);
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }
@@ -212,17 +239,19 @@ export function useAppStore() {
   const updateParticipantDailyScore = async (id: string, dayIndex: number, score: number) => {
     try {
       const docRef = doc(db, 'participants', id);
-      const snap = await getDoc(docRef);
-      if (!snap.exists()) return;
-      const participant = snap.data() as Participant;
-      
-      const newDailyScores = [...(participant.dailyScores || [])];
-      while (newDailyScores.length <= dayIndex) {
-        newDailyScores.push(0);
-      }
-      newDailyScores[dayIndex] = Math.max(0, score);
-      const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
-      await updateDoc(docRef, { dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(docRef);
+        if (!snap.exists()) return;
+        const participant = snap.data() as Participant;
+        
+        const newDailyScores = [...(participant.dailyScores || [])];
+        while (newDailyScores.length <= dayIndex) {
+          newDailyScores.push(0);
+        }
+        newDailyScores[dayIndex] = Math.max(0, score);
+        const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
+        transaction.update(docRef, { dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }
@@ -231,16 +260,18 @@ export function useAppStore() {
   const removeParticipantDailyScore = async (id: string, dayIndex: number) => {
     try {
       const docRef = doc(db, 'participants', id);
-      const snap = await getDoc(docRef);
-      if (!snap.exists()) return;
-      const participant = snap.data() as Participant;
-      
-      const newDailyScores = [...(participant.dailyScores || [])];
-      if (dayIndex >= 0 && dayIndex < newDailyScores.length) {
-        newDailyScores.splice(dayIndex, 1);
-      }
-      const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
-      await updateDoc(docRef, { dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(docRef);
+        if (!snap.exists()) return;
+        const participant = snap.data() as Participant;
+        
+        const newDailyScores = [...(participant.dailyScores || [])];
+        if (dayIndex >= 0 && dayIndex < newDailyScores.length) {
+          newDailyScores.splice(dayIndex, 1);
+        }
+        const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
+        transaction.update(docRef, { dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }
@@ -321,6 +352,7 @@ export function useAppStore() {
     answers,
     isLoading,
     isSyncing,
+    forceRefresh,
     updateParticipantScore,
     addParticipant,
     updateParticipantName,

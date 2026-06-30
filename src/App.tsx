@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Loader2, Cloud, CloudOff, CheckCircle2 } from 'lucide-react';
+import { Users, Plus, Loader2, Cloud, CloudOff, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
@@ -139,6 +139,15 @@ export default function App() {
             <h1 className="text-lg md:text-xl font-bold text-white md:text-slate-800 tracking-wider uppercase md:normal-case md:tracking-normal truncate pr-2">SFWC Admin</h1>
           </div>
           <div className="flex items-center gap-3 md:gap-4 shrink-0">
+            <button
+              onClick={() => store.forceRefresh()}
+              disabled={store.isSyncing}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              title="Force Refresh Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${store.isSyncing ? 'animate-spin' : ''}`} />
+              <span className="hidden md:inline">Refresh</span>
+            </button>
             <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${store.isSyncing ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'} md:bg-opacity-100 bg-opacity-20`}>
               {store.isSyncing ? (
                 <>
