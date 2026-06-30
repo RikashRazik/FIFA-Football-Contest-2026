@@ -14,6 +14,7 @@ export interface Question {
   correctAnswer?: string;
   isManualInput?: boolean;
   manualInputCount?: number;
+  manualInputPlaceholders?: string[];
   maxSelections?: number;
   isActivatedNow?: boolean;
   columns?: number;

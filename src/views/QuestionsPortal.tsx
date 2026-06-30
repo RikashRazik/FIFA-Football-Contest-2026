@@ -32,6 +32,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   const [options, setOptions] = useState<string[]>(['', '', '']);
   const [isManualInput, setIsManualInput] = useState(false);
   const [manualInputCount, setManualInputCount] = useState(1);
+  const [manualInputPlaceholders, setManualInputPlaceholders] = useState<string[]>(['']);
   const [maxSelections, setMaxSelections] = useState(2);
   const [isActivatedNow, setIsActivatedNow] = useState(false);
   const [isMultipleChoice, setIsMultipleChoice] = useState(false);
@@ -96,6 +97,9 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     };
     if (isManualInput) {
       newQ.manualInputCount = manualInputCount;
+      if (manualInputPlaceholders.some(p => p.trim() !== '')) {
+        newQ.manualInputPlaceholders = manualInputPlaceholders.map(p => p.trim());
+      }
     }
     if (isMultipleChoice) {
       newQ.maxSelections = maxSelections;
@@ -110,6 +114,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     setOptions(['', '', '']);
     setEndTime('');
     setIsManualInput(false);
+    setManualInputPlaceholders(['']);
     setIsMultipleChoice(false);
     setColumns(2);
     setType('daily');
@@ -187,6 +192,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     const [editEndTime, setEditEndTime] = useState(q.endTime || '');
     const [editCorrectAnswer, setEditCorrectAnswer] = useState(q.correctAnswer || '');
     const [editManualInputCount, setEditManualInputCount] = useState(q.manualInputCount || 1);
+    const [editManualInputPlaceholders, setEditManualInputPlaceholders] = useState<string[]>(q.manualInputPlaceholders || Array(q.manualInputCount || 1).fill(''));
     const [editMaxSelections, setEditMaxSelections] = useState(q.maxSelections || 2);
     const [editIsActivatedNow, setEditIsActivatedNow] = useState(q.isActivatedNow || false);
     const [editType, setEditType] = useState<QuestionType>(q.type);
@@ -207,6 +213,11 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
 
       if (q.isManualInput) {
         updatedFields.manualInputCount = editManualInputCount;
+        if (editManualInputPlaceholders.some(p => p.trim() !== '')) {
+          updatedFields.manualInputPlaceholders = editManualInputPlaceholders.map(p => p.trim());
+        } else {
+          updatedFields.manualInputPlaceholders = []; // clear if empty
+        }
       }
       
       if (q.type === 'multiple_choice' || q.isMultipleChoice) {
@@ -312,16 +323,46 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             </div>
 
             {q.isManualInput && (
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Boxes Count:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={editManualInputCount}
-                  onChange={(e) => setEditManualInputCount(parseInt(e.target.value) || 1)}
-                  className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                />
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Boxes Count:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={editManualInputCount}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 1;
+                      setEditManualInputCount(val);
+                      setEditManualInputPlaceholders(prev => {
+                        const arr = [...prev];
+                        while(arr.length < val) arr.push('');
+                        return arr.slice(0, val);
+                      });
+                    }}
+                    className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Custom Box Text (Optional Placeholder)</label>
+                  {Array.from({ length: editManualInputCount }).map((_, idx) => (
+                    <input
+                      key={idx}
+                      type="text"
+                      placeholder={`Placeholder for Box ${idx + 1}`}
+                      value={editManualInputPlaceholders[idx] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditManualInputPlaceholders(prev => {
+                          const newArr = [...prev];
+                          newArr[idx] = val;
+                          return newArr;
+                        });
+                      }}
+                      className="w-full max-w-xs px-3 py-1.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                    />
+                  ))}
+                </div>
               </div>
             )}
 
@@ -815,10 +856,40 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                         min="1"
                         max="10"
                         value={manualInputCount}
-                        onChange={(e) => setManualInputCount(parseInt(e.target.value) || 1)}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1;
+                          setManualInputCount(val);
+                          setManualInputPlaceholders(prev => {
+                            const newArr = [...prev];
+                            while(newArr.length < val) newArr.push('');
+                            return newArr.slice(0, val);
+                          });
+                        }}
                         className="w-full max-w-xs px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
                       />
                     </div>
+                    {manualInputCount > 0 && (
+                      <div className="space-y-2">
+                         <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Custom Box Text (Optional Placeholder)</label>
+                         {Array.from({ length: manualInputCount }).map((_, idx) => (
+                           <input
+                             key={idx}
+                             type="text"
+                             placeholder={`Placeholder for Box ${idx + 1}`}
+                             value={manualInputPlaceholders[idx] || ''}
+                             onChange={(e) => {
+                               const val = e.target.value;
+                               setManualInputPlaceholders(prev => {
+                                 const newArr = [...prev];
+                                 newArr[idx] = val;
+                                 return newArr;
+                               });
+                             }}
+                             className="w-full max-w-xs px-3 py-1.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                           />
+                         ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

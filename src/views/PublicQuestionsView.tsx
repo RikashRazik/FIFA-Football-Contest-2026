@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Question } from '../types';
 import { Clock, LogOut } from 'lucide-react';
-import { isQuestionTimedOut, COUNTRIES } from '../utils';
+import { isQuestionTimedOut } from '../utils';
 
 const CountdownTimer: React.FC<{ endTime: string, date: string }> = ({ endTime, date }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -282,11 +282,6 @@ export function PublicQuestionsView({
 
   return (
     <div className="min-h-screen bg-[#0a1128] text-slate-200 p-6 md:p-12 font-sans selection:bg-blue-500/30">
-      <datalist id="countries-list">
-        {COUNTRIES.map((country) => (
-          <option key={country} value={country} />
-        ))}
-      </datalist>
       <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
         <div className="text-center space-y-4">
@@ -397,8 +392,8 @@ export function PublicQuestionsView({
                         <input
                           key={boxIndex}
                           type="text"
-                          list="countries-list"
-                          placeholder={q.manualInputCount && q.manualInputCount > 1 ? `Answer ${boxIndex + 1}...` : "Type your answer here..."}
+                          autoComplete="off"
+                          placeholder={q.manualInputPlaceholders && q.manualInputPlaceholders[boxIndex] ? q.manualInputPlaceholders[boxIndex] : (q.manualInputCount && q.manualInputCount > 1 ? `Answer ${boxIndex + 1}...` : "Type your answer here...")}
                           value={currentAns || ''}
                           onChange={(e) => {
                             const newValue = e.target.value;
