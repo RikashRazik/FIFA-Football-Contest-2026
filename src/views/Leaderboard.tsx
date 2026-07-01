@@ -255,139 +255,176 @@ export function Leaderboard({ participants, updateScore, onParticipantClick }: L
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
-                <th className="py-4 px-6 font-medium w-24">Rank</th>
-                <th className="py-4 px-6 font-medium">Participant</th>
-                <th className="py-4 px-6 font-medium text-center">Daily</th>
-                <th className="py-4 px-6 font-medium text-center">Bonus</th>
-                <th className="py-4 px-6 font-medium text-center">Bumper</th>
-                <th className="py-4 px-6 font-bold text-slate-900 text-right">Total Pts</th>
-                <th className="py-4 px-6 w-12"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {ranked.map((p) => {
-                const isTop3 = p.rank <= 3;
-                const isExpanded = expandedRows[p.id];
-                
-                return (
-                  <React.Fragment key={p.id}>
-                    <tr 
-                      className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${p.rank === 1 ? 'bg-amber-50/30' : ''}`}
-                      onClick={() => toggleRow(p.id)}
-                    >
-                      <td className="py-4 px-6">
-                        <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm shadow-sm ${
-                          p.rank === 1 ? 'bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 text-white border-2 border-yellow-200 ring-2 ring-yellow-500/20' :
-                          p.rank === 2 ? 'bg-gradient-to-br from-slate-200 via-slate-300 to-slate-500 text-white border-2 border-slate-100 ring-2 ring-slate-400/20' :
-                          p.rank === 3 ? 'bg-gradient-to-br from-orange-300 via-orange-400 to-orange-600 text-white border-2 border-orange-200 ring-2 ring-orange-500/20' :
-                          'bg-slate-100 text-slate-500 border border-slate-200'
-                        }`}>
-                          {p.rank}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onParticipantClick) onParticipantClick(p);
-                          }}
-                          className={`font-medium hover:text-indigo-600 hover:underline ${isTop3 ? 'text-slate-900 font-bold' : 'text-slate-700'}`}
-                        >
-                          {p.name}
-                        </button>
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        {isEditingAll ? (
-                          <ScoreControl 
-                            value={p.dailyPoints}
-                            onDecrease={() => updateScore(p.id, 'dailyPoints', -1)}
-                            onIncrease={() => updateScore(p.id, 'dailyPoints', 1)}
-                          />
+        {/* Desktop Header */}
+        <div className="hidden md:grid grid-cols-12 gap-4 items-center bg-slate-50 border-b border-slate-200 text-slate-500 text-sm py-4 px-6 font-medium">
+          <div className="col-span-1">Rank</div>
+          <div className="col-span-3 lg:col-span-4">Participant</div>
+          <div className="col-span-2 text-center">Daily</div>
+          <div className="col-span-2 text-center">Bonus</div>
+          <div className="col-span-2 text-center">Bumper</div>
+          <div className="col-span-2 lg:col-span-1 text-right text-slate-900 font-bold">Total Pts</div>
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {ranked.map((p) => {
+            const isTop3 = p.rank <= 3;
+            const isExpanded = expandedRows[p.id];
+            
+            return (
+              <React.Fragment key={p.id}>
+                <div 
+                  className={`group relative flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 md:items-center py-4 px-4 md:px-6 hover:bg-slate-50/80 transition-colors cursor-pointer ${p.rank === 1 ? 'bg-amber-50/20' : ''}`}
+                  onClick={() => toggleRow(p.id)}
+                >
+                  {/* Mobile Top Row: Rank & Name & Total */}
+                  <div className="flex items-center justify-between md:hidden mb-1">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm shadow-sm shrink-0 ${
+                        p.rank === 1 ? 'bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 text-white border border-yellow-200 ring-2 ring-yellow-500/20' :
+                        p.rank === 2 ? 'bg-gradient-to-br from-slate-200 via-slate-300 to-slate-500 text-white border border-slate-100 ring-2 ring-slate-400/20' :
+                        p.rank === 3 ? 'bg-gradient-to-br from-orange-300 via-orange-400 to-orange-600 text-white border border-orange-200 ring-2 ring-orange-500/20' :
+                        'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}>
+                        {p.rank}
+                      </div>
+                      <span className={`font-semibold ${isTop3 ? 'text-slate-900' : 'text-slate-700'}`}>
+                        {p.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`font-mono text-xl font-bold ${p.rank === 1 ? 'text-amber-600' : 'text-slate-900'}`}>
+                        {p.totalPoints}
+                      </span>
+                      {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                    </div>
+                  </div>
+
+                  {/* Desktop Rank */}
+                  <div className="hidden md:block col-span-1">
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm shadow-sm ${
+                      p.rank === 1 ? 'bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 text-white border-2 border-yellow-200 ring-2 ring-yellow-500/20' :
+                      p.rank === 2 ? 'bg-gradient-to-br from-slate-200 via-slate-300 to-slate-500 text-white border-2 border-slate-100 ring-2 ring-slate-400/20' :
+                      p.rank === 3 ? 'bg-gradient-to-br from-orange-300 via-orange-400 to-orange-600 text-white border-2 border-orange-200 ring-2 ring-orange-500/20' :
+                      'bg-slate-100 text-slate-500 border border-slate-200'
+                    }`}>
+                      {p.rank}
+                    </div>
+                  </div>
+
+                  {/* Desktop Name */}
+                  <div className="hidden md:block col-span-3 lg:col-span-4 font-medium hover:text-indigo-600 hover:underline truncate"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onParticipantClick) onParticipantClick(p);
+                    }}
+                  >
+                    <span className={isTop3 ? 'text-slate-900 font-bold' : 'text-slate-700'}>{p.name}</span>
+                  </div>
+
+                  {/* Points Columns (Mobile & Desktop) */}
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:col-span-6 lg:col-span-6 md:gap-4 items-center">
+                    <div className="md:col-span-2 flex flex-col md:block items-center md:text-center p-2 md:p-0 rounded-lg md:rounded-none bg-slate-50 md:bg-transparent border md:border-transparent border-slate-100">
+                      <span className="text-[10px] uppercase font-semibold text-slate-400 md:hidden mb-1">Daily</span>
+                      {isEditingAll ? (
+                        <ScoreControl 
+                          value={p.dailyPoints}
+                          onDecrease={() => updateScore(p.id, 'dailyPoints', -1)}
+                          onIncrease={() => updateScore(p.id, 'dailyPoints', 1)}
+                        />
+                      ) : (
+                        <span className="text-slate-700 font-mono text-sm md:text-base font-medium">{p.dailyPoints}</span>
+                      )}
+                    </div>
+                    
+                    <div className="md:col-span-2 flex flex-col md:block items-center md:text-center p-2 md:p-0 rounded-lg md:rounded-none bg-indigo-50/50 md:bg-transparent border md:border-transparent border-indigo-50/50">
+                      <span className="text-[10px] uppercase font-semibold text-indigo-400 md:hidden mb-1">Bonus</span>
+                      {isEditingAll ? (
+                        <ScoreControl 
+                          value={p.bonusPoints}
+                          onDecrease={() => updateScore(p.id, 'bonusPoints', -1)}
+                          onIncrease={() => updateScore(p.id, 'bonusPoints', 1)}
+                        />
+                      ) : (
+                        <span className="text-indigo-700 font-mono text-sm md:text-base font-medium">{p.bonusPoints}</span>
+                      )}
+                    </div>
+                    
+                    <div className="md:col-span-2 flex flex-col md:block items-center md:text-center p-2 md:p-0 rounded-lg md:rounded-none bg-amber-50/50 md:bg-transparent border md:border-transparent border-amber-50/50">
+                      <span className="text-[10px] uppercase font-semibold text-amber-500 md:hidden mb-1">Bumper</span>
+                      {isEditingAll ? (
+                        <ScoreControl 
+                          value={p.bumperPoints}
+                          onDecrease={() => updateScore(p.id, 'bumperPoints', -1)}
+                          onIncrease={() => updateScore(p.id, 'bumperPoints', 1)}
+                        />
+                      ) : (
+                        <span className="text-amber-700 font-mono text-sm md:text-base font-medium">{p.bumperPoints}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Desktop Total & Expand */}
+                  <div className="hidden md:flex col-span-2 lg:col-span-1 items-center justify-end gap-4">
+                    <span className={`font-mono text-lg font-bold ${
+                      p.rank === 1 ? 'text-amber-600' : 'text-slate-900'
+                    }`}>
+                      {p.totalPoints}
+                    </span>
+                    <div className="w-5">
+                      {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" /> : <ChevronDown className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />}
+                    </div>
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="bg-slate-50/80 border-t border-slate-100 p-4 md:px-6 md:py-5 shadow-inner">
+                    <div className="flex flex-col gap-2">
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Daily Breakdown</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {p.dailyScores && p.dailyScores.length > 0 ? (
+                          p.dailyScores.map((score, dayIndex) => (
+                            <div key={dayIndex} className="flex flex-col items-center bg-white border border-slate-200 rounded-lg p-2 min-w-[3.5rem] shadow-sm">
+                              <span className="text-[10px] text-slate-400 font-bold mb-1 uppercase">D{dayIndex + 1}</span>
+                              {isEditingAll ? (
+                                <ScoreControl 
+                                  value={score}
+                                  onDecrease={() => updateScore(p.id, 'dailyPoints', -1, dayIndex)}
+                                  onIncrease={() => updateScore(p.id, 'dailyPoints', 1, dayIndex)}
+                                />
+                              ) : (
+                                <span className={`font-mono font-bold text-sm ${score > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>{score}</span>
+                              )}
+                            </div>
+                          ))
                         ) : (
-                          <span className="text-slate-600 font-mono text-sm">{p.dailyPoints}</span>
+                          !isEditingAll && <span className="text-slate-500 text-sm italic py-2">No daily breakdown available.</span>
                         )}
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        {isEditingAll ? (
-                          <ScoreControl 
-                            value={p.bonusPoints}
-                            onDecrease={() => updateScore(p.id, 'bonusPoints', -1)}
-                            onIncrease={() => updateScore(p.id, 'bonusPoints', 1)}
-                          />
-                        ) : (
-                          <span className="text-slate-600 font-mono text-sm">{p.bonusPoints}</span>
+                        {isEditingAll && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateScore(p.id, 'dailyPoints', 0, p.dailyScores?.length || 0);
+                            }}
+                            className="flex flex-col items-center justify-center bg-white border border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 rounded-lg p-2 min-w-[3.5rem] h-[58px] shadow-sm transition-colors group cursor-pointer"
+                            title="Add Day"
+                          >
+                            <Plus className="w-4 h-4 text-slate-400 group-hover:text-indigo-500" />
+                            <span className="text-[9px] font-bold text-slate-400 group-hover:text-indigo-500 mt-0.5 uppercase">Add</span>
+                          </button>
                         )}
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        {isEditingAll ? (
-                          <ScoreControl 
-                            value={p.bumperPoints}
-                            onDecrease={() => updateScore(p.id, 'bumperPoints', -1)}
-                            onIncrease={() => updateScore(p.id, 'bumperPoints', 1)}
-                          />
-                        ) : (
-                          <span className="text-slate-600 font-mono text-sm">{p.bumperPoints}</span>
-                        )}
-                      </td>
-                      <td className="py-4 px-6 text-right">
-                        <span className={`font-mono text-lg font-bold ${
-                          p.rank === 1 ? 'text-amber-600' : 'text-slate-900'
-                        }`}>
-                          {p.totalPoints}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-right text-slate-400">
-                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                      </td>
-                    </tr>
-                    {isExpanded && (
-                      <tr className="bg-slate-50/80 border-b border-slate-100">
-                        <td colSpan={7} className="py-4 px-6">
-                          <div className="flex flex-wrap items-center gap-2 text-sm">
-                            {p.dailyScores && p.dailyScores.length > 0 ? (
-                              p.dailyScores.map((score, dayIndex) => (
-                                <div key={dayIndex} className="flex flex-col items-center bg-white border border-slate-200 rounded-md p-2 min-w-[3rem] shadow-sm">
-                                  <span className="text-xs text-slate-500 font-medium mb-1">D{dayIndex + 1}</span>
-                                  {isEditingAll ? (
-                                    <ScoreControl 
-                                      value={score}
-                                      onDecrease={() => updateScore(p.id, 'dailyPoints', -1, dayIndex)}
-                                      onIncrease={() => updateScore(p.id, 'dailyPoints', 1, dayIndex)}
-                                    />
-                                  ) : (
-                                    <span className={`font-mono font-bold ${score > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>{score}</span>
-                                  )}
-                                </div>
-                              ))
-                            ) : (
-                              !isEditingAll && <span className="text-slate-500 text-sm italic">No daily breakdown available.</span>
-                            )}
-                            {isEditingAll && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  updateScore(p.id, 'dailyPoints', 0, p.dailyScores?.length || 0);
-                                }}
-                                className="flex flex-col items-center justify-center bg-white border border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 rounded-md p-2 min-w-[3rem] h-full min-h-[52px] shadow-sm transition-colors group cursor-pointer"
-                                title="Add Day"
-                              >
-                                <Plus className="w-5 h-5 text-slate-400 group-hover:text-indigo-500" />
-                                <span className="text-[10px] font-medium text-slate-400 group-hover:text-indigo-500 mt-0.5">Add</span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+          {ranked.length === 0 && (
+            <div className="py-12 flex flex-col items-center justify-center text-center">
+              <Trophy className="w-12 h-12 text-slate-200 mb-3" />
+              <p className="text-slate-500 font-medium">No participants found.</p>
+            </div>
+          )}
         </div>
       </div>
 
