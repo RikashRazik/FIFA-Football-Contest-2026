@@ -16,6 +16,9 @@ import { useAppStore } from './hooks/useAppStore';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from './utils';
 import { ParticipantProfileModal } from './components/ParticipantProfileModal';
 import { Participant } from './types';
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+import { GlobalSearch } from './components/GlobalSearch';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -31,6 +34,10 @@ export default function App() {
   const handleParticipantClick = (participant: Participant) => {
     setSelectedParticipant(participant);
     setIsProfileModalOpen(true);
+  };
+
+  const handleQuestionClick = (question: Question) => {
+    setActiveTab(getDynamicQuestionStatus(question) === 'active' ? 'active-questions' : 'questions');
   };
 
   const [publicDate, setPublicDate] = useState<string | null>(() => {
@@ -165,8 +172,19 @@ export default function App() {
         <header className="h-16 bg-[#0a1128] border-b border-slate-800/80 flex items-center justify-between px-4 md:px-8 flex-shrink-0 md:bg-white md:border-slate-200">
           <div className="flex items-center gap-3">
             <img src="https://lh3.googleusercontent.com/d/1ICYyiBiZbuE_gsUv3tqsH6pFXzEst_D3" alt="Logo" className="w-10 h-10 object-contain md:hidden" referrerPolicy="no-referrer" />
-            <h1 className="text-lg md:text-xl font-bold text-white md:text-slate-800 tracking-wider uppercase md:normal-case md:tracking-normal truncate pr-2">SFWC Admin</h1>
+            <h1 className="text-lg md:text-xl font-bold text-white md:text-slate-800 tracking-wider uppercase md:normal-case md:tracking-normal truncate pr-2 hidden sm:block">SFWC Admin</h1>
           </div>
+          
+          <div className="flex-1 max-w-xl mx-4 flex justify-center">
+            <GlobalSearch 
+              participants={store.participants}
+              questions={store.questions}
+              answers={store.answers}
+              onParticipantClick={handleParticipantClick}
+              onQuestionClick={handleQuestionClick}
+            />
+          </div>
+
           <div className="flex items-center gap-3 md:gap-4 shrink-0">
             <button
               onClick={() => store.forceRefresh()}
@@ -216,64 +234,66 @@ export default function App() {
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }} // smooth easeOut
             >
-              {activeTab === 'dashboard' && (
-                <Dashboard 
-                  participants={store.participants} 
-                  questions={store.questions}
-                  answers={store.answers}
-                  onNavigate={setActiveTab} 
-                />
-              )}
-              {activeTab === 'leaderboard' && (
-                <Leaderboard 
-                  participants={store.participants} 
-                  updateScore={store.updateParticipantScore}
-                  onParticipantClick={handleParticipantClick}
-                />
-              )}
-              {activeTab === 'questions' && (
-                <QuestionsPortal 
-                  questions={store.questions}
-                  participants={store.participants}
-                  answers={store.answers}
-                  addQuestion={store.addQuestion}
-                  updateQuestion={store.updateQuestion}
-                  deleteQuestion={store.deleteQuestion}
-                  isAddModalOpen={isAddModalOpen}
-                  setIsAddModalOpen={setIsAddModalOpen}
-                />
-              )}
-              {activeTab === 'users' && (
-                <UserManager 
-                  participants={store.participants}
-                  addParticipant={store.addParticipant}
-                  updateParticipantName={store.updateParticipantName}
-                  updateParticipantDailyScore={store.updateParticipantDailyScore}
-                  removeParticipantDailyScore={store.removeParticipantDailyScore}
-                  deleteParticipant={store.deleteParticipant}
-                  onParticipantClick={handleParticipantClick}
-                />
-              )}
-              {activeTab === 'active-questions' && (
-                <ActiveQuestions
-                  questions={store.questions}
-                  participants={store.participants}
-                  answers={store.answers}
-                  deleteParticipantAnswers={store.deleteParticipantAnswers}
-                  updateQuestion={store.updateQuestion}
-                  deleteQuestion={store.deleteQuestion}
-                />
-              )}
-              {activeTab === 'evaluate' && (
-                <EvaluateAnswers
-                  questions={store.questions}
-                  participants={store.participants}
-                  answers={store.answers}
-                  updateParticipantScore={store.updateParticipantScore}
-                  updateQuestion={store.updateQuestion}
-                  addAnswer={store.addAnswer}
-                />
-              )}
+              <ErrorBoundary>
+                {activeTab === 'dashboard' && (
+                  <Dashboard 
+                    participants={store.participants} 
+                    questions={store.questions}
+                    answers={store.answers}
+                    onNavigate={setActiveTab} 
+                  />
+                )}
+                {activeTab === 'leaderboard' && (
+                  <Leaderboard 
+                    participants={store.participants} 
+                    updateScore={store.updateParticipantScore}
+                    onParticipantClick={handleParticipantClick}
+                  />
+                )}
+                {activeTab === 'questions' && (
+                  <QuestionsPortal 
+                    questions={store.questions}
+                    participants={store.participants}
+                    answers={store.answers}
+                    addQuestion={store.addQuestion}
+                    updateQuestion={store.updateQuestion}
+                    deleteQuestion={store.deleteQuestion}
+                    isAddModalOpen={isAddModalOpen}
+                    setIsAddModalOpen={setIsAddModalOpen}
+                  />
+                )}
+                {activeTab === 'users' && (
+                  <UserManager 
+                    participants={store.participants}
+                    addParticipant={store.addParticipant}
+                    updateParticipantName={store.updateParticipantName}
+                    updateParticipantDailyScore={store.updateParticipantDailyScore}
+                    removeParticipantDailyScore={store.removeParticipantDailyScore}
+                    deleteParticipant={store.deleteParticipant}
+                    onParticipantClick={handleParticipantClick}
+                  />
+                )}
+                {activeTab === 'active-questions' && (
+                  <ActiveQuestions
+                    questions={store.questions}
+                    participants={store.participants}
+                    answers={store.answers}
+                    deleteParticipantAnswers={store.deleteParticipantAnswers}
+                    updateQuestion={store.updateQuestion}
+                    deleteQuestion={store.deleteQuestion}
+                  />
+                )}
+                {activeTab === 'evaluate' && (
+                  <EvaluateAnswers
+                    questions={store.questions}
+                    participants={store.participants}
+                    answers={store.answers}
+                    updateParticipantScore={store.updateParticipantScore}
+                    updateQuestion={store.updateQuestion}
+                    addAnswer={store.addAnswer}
+                  />
+                )}
+              </ErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </div>
