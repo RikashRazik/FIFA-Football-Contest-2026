@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Loader2, Cloud, CloudOff, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Users, Plus, Loader2, Cloud, CloudOff, CheckCircle2, RefreshCw, LogOut } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
@@ -49,10 +49,39 @@ export default function App() {
     return new URLSearchParams(window.location.search).get('view') === 'leaderboard';
   });
 
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   useEffect(() => {
     // Keep this empty or remove if nothing else is needed here, 
     // since we initialized synchronously above.
   }, []);
+
+  const [isSlowConnection, setIsSlowConnection] = useState(false);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (store.isSyncing && isOnline) {
+      timeout = setTimeout(() => {
+        setIsSlowConnection(true);
+      }, 3000);
+    } else {
+      setIsSlowConnection(false);
+    }
+    return () => clearTimeout(timeout);
+  }, [store.isSyncing, isOnline]);
 
   const handleLogin = () => {
     localStorage.setItem('fifa_admin_auth', 'true');
@@ -141,24 +170,24 @@ export default function App() {
           <div className="flex items-center gap-3 md:gap-4 shrink-0">
             <button
               onClick={() => store.forceRefresh()}
-              disabled={store.isSyncing}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              disabled={store.isSyncing || !isOnline}
+              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
               title="Force Refresh Data"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${store.isSyncing ? 'animate-spin' : ''}`} />
-              <span className="hidden md:inline">Refresh</span>
+              <RefreshCw className={`w-4 h-4 ${store.isSyncing ? 'animate-spin' : ''}`} />
             </button>
-            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${store.isSyncing ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'} md:bg-opacity-100 bg-opacity-20`}>
-              {store.isSyncing ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span className="hidden md:inline">Saving...</span>
-                </>
+            <div 
+              className={`hidden sm:flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium border ${!isOnline ? 'bg-red-50 text-red-600 border-red-200' : isSlowConnection ? 'bg-amber-100 text-amber-700 border-amber-300' : store.isSyncing ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'} md:bg-opacity-100 bg-opacity-20`}
+              title={!isOnline ? "Offline" : isSlowConnection ? "Slow Connection" : store.isSyncing ? "Saving..." : "Online & Synced"}
+            >
+              {!isOnline ? (
+                <CloudOff className="w-4 h-4" />
+              ) : isSlowConnection ? (
+                <Cloud className="w-4 h-4 animate-pulse text-amber-500" />
+              ) : store.isSyncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Synced</span>
-                </>
+                <Cloud className="w-4 h-4" />
               )}
             </div>
             <button 
@@ -173,7 +202,7 @@ export default function App() {
               className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors rounded-lg"
               title="Logout"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </header>

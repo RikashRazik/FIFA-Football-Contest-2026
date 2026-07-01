@@ -207,10 +207,10 @@ export function useAppStore() {
     }
   };
 
-  const addParticipant = async (name: string): Promise<string | undefined> => {
+  const addParticipant = async (name: string, customUniqueId?: string): Promise<string | undefined> => {
     try {
-      const id = Date.now().toString();
-      const uniqueId = Math.floor(1000 + Math.random() * 9000).toString();
+      const id = Date.now().toString() + Math.random().toString(36).substring(2, 6);
+      const uniqueId = customUniqueId || Math.floor(1000 + Math.random() * 9000).toString();
       const newParticipant: Participant = {
         id,
         name,

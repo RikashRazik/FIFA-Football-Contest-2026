@@ -503,6 +503,13 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             }`}>
               {q.type}
             </span>
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+              getDynamicQuestionStatus(q) === 'active' ? 'bg-emerald-100 text-emerald-700' :
+              getDynamicQuestionStatus(q) === 'past' ? 'bg-slate-100 text-slate-600' :
+              'bg-amber-100 text-amber-700'
+            }`}>
+              {getDynamicQuestionStatus(q) === 'active' ? 'Active' : getDynamicQuestionStatus(q) === 'past' ? 'Closed' : 'Pending'}
+            </span>
             <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
               <Calendar className="w-3 h-3" /> {q.date} (Day {getDayNumber(q.date)})
             </span>

@@ -28,7 +28,7 @@ export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluat
           <span className="text-white text-sm font-bold tracking-widest uppercase">SFWC 2026</span>
         </div>
         
-        <nav className="flex-1 px-3 space-y-1 mt-6">
+        <nav className="flex-1 px-3 space-y-1 mt-6 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -36,14 +36,14 @@ export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluat
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-200 text-sm ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-200 text-sm font-medium ${
                   isActive 
-                    ? 'bg-blue-500/10 text-blue-400 font-medium shadow-sm shadow-blue-500/5' 
+                    ? 'bg-blue-500/10 text-blue-400 shadow-sm shadow-blue-500/5' 
                     : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                 }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-blue-400' : 'text-slate-500'}`} />
-                <span className="flex-1 text-left whitespace-nowrap truncate text-[13px]">{item.label}</span>
+                <span className="flex-1 text-left whitespace-nowrap truncate">{item.label}</span>
                 {item.count !== undefined && item.count > 0 && (
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
                     {item.count}
@@ -54,7 +54,7 @@ export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluat
           })}
         </nav>
 
-        <div className="relative mt-auto p-3">
+        <div className="relative mt-auto p-3 border-t border-slate-800/50">
           {showLogout && (
             <div className="absolute bottom-full left-3 right-3 mb-2 bg-[#0a1128] rounded-md shadow-xl border border-slate-800 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
               <button 
@@ -80,7 +80,9 @@ export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluat
             className="p-3 rounded-md bg-slate-900/50 border border-slate-800/50 cursor-pointer hover:bg-slate-800 transition-colors flex items-center gap-3 w-full"
             onClick={() => setShowLogout(!showLogout)}
           >
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-300 font-medium">A</div>
+            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-300 font-medium">
+              A
+            </div>
             <div className="flex-1 text-left overflow-hidden">
               <div className="text-xs font-medium text-slate-300 truncate">System Manager</div>
               <div className="text-[10px] text-slate-500">Logged in</div>

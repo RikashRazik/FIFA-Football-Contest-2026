@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Participant } from '../types';
-import { Search, Plus, Minus, UserPlus, Edit2, Check, X, Trash2, Users, MoreVertical, Download, ArrowDownAZ, Clock } from 'lucide-react';
+import { Search, Plus, Minus, UserPlus, Edit2, Check, X, Trash2, Users, MoreVertical, Download, Upload, ArrowDownAZ, Clock } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { ImportModal } from '../components/ImportModal';
 import { ExportModal } from '../components/ExportModal';
 import { toast } from 'react-hot-toast';
 
 interface UserManagerProps {
   participants: Participant[];
-  addParticipant: (name: string) => Promise<string | undefined> | void;
+  addParticipant: (name: string, uniqueId?: string) => Promise<string | undefined> | void;
   updateParticipantName: (id: string, name: string) => void;
   updateParticipantDailyScore: (id: string, dayIndex: number, score: number) => void;
   removeParticipantDailyScore: (id: string, dayIndex: number) => void;
@@ -38,6 +39,7 @@ export function UserManager({
 
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [generatedUserId, setGeneratedUserId] = useState<string | null>(null);
 
   const sortedParticipants = [...participants].sort((a, b) => {
@@ -143,26 +145,32 @@ export function UserManager({
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <button
           onClick={() => setSortOrder(prev => prev === 'alphabetical' ? 'recent' : 'alphabetical')}
-          className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 px-4 py-2.5 rounded-lg transition-all shadow-sm flex items-center gap-2 font-medium text-sm self-start sm:self-auto shrink-0"
+          className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 p-2.5 rounded-lg transition-all shadow-sm flex items-center justify-center shrink-0"
           title={`Sort by ${sortOrder === 'alphabetical' ? 'Recently Added' : 'Alphabetical'}`}
         >
-          {sortOrder === 'alphabetical' ? <ArrowDownAZ className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-          {sortOrder === 'alphabetical' ? 'Alphabetical' : 'Recently Added'}
+          {sortOrder === 'alphabetical' ? <ArrowDownAZ className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
         </button>
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 flex-wrap">
+          <button 
+            onClick={() => setIsImportModalOpen(true)}
+            className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 p-2.5 rounded-lg transition-all shadow-sm flex items-center justify-center"
+            title="Import Users"
+          >
+            <Upload className="w-5 h-5" />
+          </button>
           <button 
             onClick={() => setIsExportModalOpen(true)}
-            className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 px-4 py-2.5 rounded-lg transition-all shadow-sm flex items-center gap-2 font-medium text-sm"
+            className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 p-2.5 rounded-lg transition-all shadow-sm flex items-center justify-center"
             title="Export Users"
           >
-            <Download className="w-4 h-4" /> Export
+            <Download className="w-5 h-5" />
           </button>
           <button 
             onClick={() => setIsAddUserModalOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-2 font-medium text-sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-lg transition-colors shadow-sm flex items-center justify-center"
             title="Add New Participant"
           >
-            <UserPlus className="w-4 h-4" /> Add Participant
+            <UserPlus className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -215,13 +223,22 @@ export function UserManager({
                       </span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <button 
-                        onClick={() => handleOpenUserModal(p)}
-                        className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
-                        title="Manage User"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button 
+                          onClick={() => handleOpenUserModal(p)}
+                          className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+                          title="Manage User"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => setUserToDelete(p)}
+                          className="p-2 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-lg transition-colors"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -468,6 +485,17 @@ export function UserManager({
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         participants={participants}
+      />
+      
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={(importedParticipants) => {
+          importedParticipants.forEach(p => {
+             addParticipant(p.name, p.uniqueId);
+          });
+        }}
       />
     </div>
   );
