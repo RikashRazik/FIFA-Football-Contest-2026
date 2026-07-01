@@ -226,28 +226,6 @@ export function ActiveQuestions({
     return result;
   }, [activeQuestions, answers, participants]);
 
-  const getFormattedAnswers = (subAnswers: Answer[]) => {
-    return activeQuestions.map((q, index) => {
-      const ans = subAnswers.find(a => a.questionId === q.id);
-      if (!ans) return null;
-      
-      let formattedAns = '?';
-      if (q.type === 'multiple_choice' || q.isMultipleChoice) {
-        const parts = ans.answer.split(' | ');
-        const indices = parts.map(part => {
-          const idx = q.options?.indexOf(part);
-          return idx !== undefined && idx !== -1 ? `${idx + 1}` : '?';
-        });
-        formattedAns = indices.join(',');
-      } else {
-        const optIndex = q.options?.findIndex(opt => opt === ans.answer) ?? -1;
-        formattedAns = optIndex >= 0 ? String.fromCharCode(65 + optIndex) : '?';
-      }
-      
-      return `${index + 1}.${formattedAns}`;
-    }).filter(Boolean).join(', ');
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -379,9 +357,42 @@ export function ActiveQuestions({
                           </div>
                         </td>
                         <td className="py-3 px-6">
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold tracking-wide text-sm border border-indigo-100 whitespace-nowrap">
-                            {getFormattedAnswers(sub.answers)}
-                          </span>
+                          <div className="flex flex-wrap gap-1.5 max-w-xs sm:max-w-md lg:max-w-lg">
+                            {activeQuestions.map((q, idx) => {
+                              const ans = sub.answers.find(a => a.questionId === q.id);
+                              if (!ans) return null;
+                              
+                              let displayVal = '';
+                              if (q.type === 'multiple_choice' || q.isMultipleChoice) {
+                                const parts = ans.answer.split(' | ');
+                                const formattedParts = parts.map(part => {
+                                  const optionIdx = q.options?.indexOf(part) ?? -1;
+                                  return optionIdx >= 0 ? `${optionIdx + 1}. ${part}` : part;
+                                });
+                                displayVal = formattedParts.join(', ');
+                              } else {
+                                const optIndex = q.options?.findIndex(opt => opt === ans.answer) ?? -1;
+                                displayVal = optIndex >= 0 ? `${String.fromCharCode(65 + optIndex)}. ${ans.answer}` : ans.answer;
+                              }
+                              
+                              return (
+                                <div 
+                                  key={q.id} 
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-100/80 max-w-full"
+                                  title={`Question: ${q.text}`}
+                                >
+                                  {activeQuestions.length > 1 && (
+                                    <span className="text-[9px] text-indigo-500 bg-indigo-100/60 px-1 py-0.5 rounded font-mono shrink-0">
+                                      Q{idx + 1}
+                                    </span>
+                                  )}
+                                  <span className="truncate max-w-[180px] sm:max-w-[240px]" title={displayVal}>
+                                    {displayVal}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </td>
                         <td className="py-3 px-6 text-right">
                           <span className="text-sm font-medium text-slate-600">

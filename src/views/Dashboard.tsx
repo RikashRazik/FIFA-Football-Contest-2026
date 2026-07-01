@@ -8,6 +8,7 @@ import { getDynamicQuestionStatus, isQuestionTimedOut } from '../utils';
 import { PointsChart } from '../components/PointsChart';
 import { WhatsAppGenerator } from '../components/WhatsAppGenerator';
 import { ProgressRing } from '../components/ProgressRing';
+import { Tooltip } from '../components/Tooltip';
 import { Target, Edit2 } from 'lucide-react';
 
 interface DashboardProps {
@@ -99,66 +100,76 @@ export function Dashboard({ participants, questions, answers, onNavigate }: Dash
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-5">
-        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center shrink-0 relative z-10">
-            <Users className="w-5 h-5 md:w-6 md:h-6 text-indigo-700" />
+        <Tooltip content="Total number of users registered for the contest." position="bottom">
+          <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden h-full w-full">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center shrink-0 relative z-10">
+              <Users className="w-5 h-5 md:w-6 md:h-6 text-indigo-700" />
+            </div>
+            <div className="relative z-10 flex-1 min-w-0 text-left">
+              <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Total Participants</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-900">{participants.length}</p>
+            </div>
           </div>
-          <div className="relative z-10 flex-1 min-w-0">
-            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Total Participants</p>
-            <p className="text-xl md:text-2xl font-bold text-slate-900">{participants.length}</p>
-          </div>
-        </div>
+        </Tooltip>
 
-        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center shrink-0 relative z-10">
-            <Activity className="w-5 h-5 md:w-6 md:h-6 text-emerald-700" />
+        <Tooltip content="The currently active question waiting for answers." position="bottom">
+          <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden h-full w-full">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center shrink-0 relative z-10">
+              <Activity className="w-5 h-5 md:w-6 md:h-6 text-emerald-700" />
+            </div>
+            <div className="relative z-10 flex-1 min-w-0 text-left">
+              <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Active Question</p>
+              {exactActiveQuestion ? (
+                <p className="text-sm font-bold text-emerald-700 truncate" title={exactActiveQuestion.text}>
+                  {exactActiveQuestion.title ? `${exactActiveQuestion.title}: ` : ''}{exactActiveQuestion.text}
+                </p>
+              ) : (
+                <p className="text-sm font-semibold text-slate-400">No active question</p>
+              )}
+            </div>
           </div>
-          <div className="relative z-10 flex-1 min-w-0">
-            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Active Question</p>
-            {exactActiveQuestion ? (
-              <p className="text-sm font-bold text-emerald-700 truncate" title={exactActiveQuestion.text}>
-                {exactActiveQuestion.title ? `${exactActiveQuestion.title}: ` : ''}{exactActiveQuestion.text}
-              </p>
-            ) : (
-              <p className="text-sm font-semibold text-slate-400">No active question</p>
-            )}
-          </div>
-        </div>
+        </Tooltip>
 
-        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-amber-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center shrink-0 relative z-10">
-            <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-amber-700" />
+        <Tooltip content="Questions that have timed out and require manual scoring." position="bottom">
+          <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden h-full w-full">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-amber-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center shrink-0 relative z-10">
+              <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-amber-700" />
+            </div>
+            <div className="relative z-10 flex-1 min-w-0 text-left">
+              <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Pending Evaluation</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-900">{pendingEvaluationCount}</p>
+            </div>
           </div>
-          <div className="relative z-10 flex-1 min-w-0">
-            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Pending Evaluation</p>
-            <p className="text-xl md:text-2xl font-bold text-slate-900">{pendingEvaluationCount}</p>
-          </div>
-        </div>
+        </Tooltip>
 
-        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center shrink-0 relative z-10">
-            <CheckSquare className="w-5 h-5 md:w-6 md:h-6 text-blue-700" />
+        <Tooltip content="Total number of questions posted so far." position="bottom">
+          <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden h-full w-full">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center shrink-0 relative z-10">
+              <CheckSquare className="w-5 h-5 md:w-6 md:h-6 text-blue-700" />
+            </div>
+            <div className="relative z-10 flex-1 min-w-0 text-left">
+              <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Questions Asked</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-900">{totalQuestionsAsked}</p>
+            </div>
           </div>
-          <div className="relative z-10 flex-1 min-w-0">
-            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Questions Asked</p>
-            <p className="text-xl md:text-2xl font-bold text-slate-900">{totalQuestionsAsked}</p>
-          </div>
-        </div>
+        </Tooltip>
 
-        <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center shrink-0 relative z-10">
-            <Calendar className="w-5 h-5 md:w-6 md:h-6 text-purple-700" />
+        <Tooltip content="Number of days since the contest started on June 11, 2026." position="bottom">
+          <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden h-full w-full">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-purple-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center shrink-0 relative z-10">
+              <Calendar className="w-5 h-5 md:w-6 md:h-6 text-purple-700" />
+            </div>
+            <div className="relative z-10 flex-1 min-w-0 text-left">
+              <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Total Days</p>
+              <p className="text-xl md:text-2xl font-bold text-slate-900">{totalDays}</p>
+            </div>
           </div>
-          <div className="relative z-10 flex-1 min-w-0">
-            <p className="text-[9px] lg:text-[10px] xl:text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-0.5 leading-tight">Total Days</p>
-            <p className="text-xl md:text-2xl font-bold text-slate-900">{totalDays}</p>
-          </div>
-        </div>
+        </Tooltip>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
@@ -171,7 +182,13 @@ export function Dashboard({ participants, questions, answers, onNavigate }: Dash
             </div>
           </div>
           <div className="p-6">
-            <PointsChart data={participantsWithTotals.map(p => ({ name: p.name, points: p.total }))} />
+            <PointsChart data={participantsWithTotals.map(p => ({ 
+              name: p.name, 
+              points: p.total,
+              daily: p.dailyPoints,
+              bonus: p.bonusPoints,
+              bumper: p.bumperPoints
+            }))} />
           </div>
         </div>
 
