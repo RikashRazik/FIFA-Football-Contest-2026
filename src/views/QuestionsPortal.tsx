@@ -38,6 +38,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   const [isMultipleChoice, setIsMultipleChoice] = useState(false);
   const [columns, setColumns] = useState(2);
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
+  const [isAddMultiple, setIsAddMultiple] = useState(false);
+  const [tempQuestions, setTempQuestions] = useState<any[]>([]);
 
   const formatEndTime = (endTimeString: string) => {
     if (!endTimeString) return '';
@@ -78,6 +80,62 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!text.trim() && tempQuestions.length === 0) return;
+    
+    const qsToSave = [...tempQuestions];
+    
+    if (text.trim()) {
+      const formattedText = formatQuestionText(text);
+      const validOptions = options.filter(opt => opt.trim() !== '');
+      
+      const newQ: any = {
+        text: formattedText, 
+        title: title.trim() || '',
+        type, 
+        points: isMultipleChoice ? maxSelections : points, 
+        date, 
+        status: isActivatedNow ? 'active' : getInitialQuestionStatus(date),
+        isManualInput,
+        isActivatedNow,
+        isMultipleChoice,
+        columns: isMultipleChoice ? columns : 2
+      };
+      if (isManualInput) {
+        newQ.manualInputCount = manualInputCount;
+        if (manualInputPlaceholders.some(p => p.trim() !== '')) {
+          newQ.manualInputPlaceholders = manualInputPlaceholders.map(p => p.trim());
+        }
+      }
+      if (isMultipleChoice) {
+        newQ.maxSelections = maxSelections;
+      }
+      if (!isManualInput && validOptions.length > 0) newQ.options = validOptions;
+      if (endTime) newQ.endTime = endTime;
+      
+      qsToSave.push(newQ);
+    }
+
+    qsToSave.forEach(q => addQuestion(q));
+    
+    setText('');
+    setTitle('');
+    setOptions(['', '', '']);
+    setEndTime('');
+    setIsManualInput(false);
+    setManualInputPlaceholders(['']);
+    setIsMultipleChoice(false);
+    setColumns(2);
+    setType('daily');
+    setPoints(1);
+    setManualInputCount(1);
+    setMaxSelections(2);
+    setIsActivatedNow(false);
+    setIsAddMultiple(false);
+    setTempQuestions([]);
+    setIsAddModalOpen(false);
+  };
+
+  const handleAddToList = () => {
     if (!text.trim()) return;
     
     const formattedText = formatQuestionText(text);
@@ -106,23 +164,18 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     }
     if (!isManualInput && validOptions.length > 0) newQ.options = validOptions;
     if (endTime) newQ.endTime = endTime;
-
-    addQuestion(newQ);
+    
+    setTempQuestions([...tempQuestions, newQ]);
     
     setText('');
     setTitle('');
     setOptions(['', '', '']);
-    setEndTime('');
     setIsManualInput(false);
     setManualInputPlaceholders(['']);
     setIsMultipleChoice(false);
     setColumns(2);
-    setType('daily');
-    setPoints(1);
     setManualInputCount(1);
     setMaxSelections(2);
-    setIsActivatedNow(false);
-    setIsAddModalOpen(false);
   };
 
   const handleOptionChange = (index: number, value: string) => {
@@ -970,19 +1023,44 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                 </div>
               </div>
               
-              <div className="mt-4 flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={isActivatedNow}
-                    onChange={(e) => setIsActivatedNow(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                  />
-                  Activate Now
-                </label>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={isActivatedNow}
+                      onChange={(e) => setIsActivatedNow(e.target.checked)}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                    />
+                    Activate Now
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={isAddMultiple}
+                      onChange={(e) => setIsAddMultiple(e.target.checked)}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                    />
+                    Add multiple questions
+                  </label>
+                </div>
               </div>
+
+              {tempQuestions.length > 0 && (
+                <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 max-h-40 overflow-y-auto">
+                  <h4 className="text-xs font-bold text-slate-700">Questions added so far ({tempQuestions.length}):</h4>
+                  {tempQuestions.map((q, idx) => (
+                    <div key={idx} className="text-sm bg-white p-2 rounded border border-slate-100 shadow-sm flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="truncate">{q.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               
-              <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex justify-end gap-2 sm:gap-3">
+              <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex flex-wrap justify-end gap-2 sm:gap-3">
                 <button 
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
@@ -990,11 +1068,21 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                 >
                   Cancel
                 </button>
+                {isAddMultiple && (
+                  <button 
+                    type="button"
+                    onClick={handleAddToList}
+                    disabled={!text.trim()}
+                    className="px-4 py-1.5 sm:px-5 sm:py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg sm:rounded-xl transition-colors shadow-sm flex items-center gap-2 text-xs sm:text-sm disabled:opacity-50"
+                  >
+                    <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Next Question
+                  </button>
+                )}
                 <button 
                   type="submit" 
                   className="px-4 py-1.5 sm:px-5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg sm:rounded-xl transition-colors shadow-sm flex items-center gap-2 text-xs sm:text-sm"
                 >
-                  <Save className="w-3 h-3 sm:w-4 sm:h-4" /> Save Question
+                  <Save className="w-3 h-3 sm:w-4 sm:h-4" /> {isAddMultiple && tempQuestions.length > 0 ? `Save All Questions (${text.trim() ? tempQuestions.length + 1 : tempQuestions.length})` : 'Save Question'}
                 </button>
               </div>
             </form>
