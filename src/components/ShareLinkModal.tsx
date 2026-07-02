@@ -5,9 +5,10 @@ import { toast } from 'react-hot-toast';
 interface ShareLinkModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultType?: 'active' | 'date' | 'leaderboard' | 'question';
+  defaultType?: 'active' | 'date' | 'leaderboard' | 'question' | 'group';
   date?: string;
   questionId?: string;
+  groupId?: string;
   questions?: import('../types').Question[];
 }
 
@@ -17,11 +18,13 @@ export function ShareLinkModal({
   defaultType = 'active', 
   date: initialDate, 
   questionId, 
+  groupId,
   questions 
 }: ShareLinkModalProps) {
-  const [shareType, setShareType] = useState<'active' | 'date' | 'leaderboard' | 'question'>(defaultType);
+  const [shareType, setShareType] = useState<'active' | 'date' | 'leaderboard' | 'question' | 'group'>(defaultType);
   const [selectedDate, setSelectedDate] = useState(initialDate || new Date().toISOString().split('T')[0]);
   const [selectedQuestionId, setSelectedQuestionId] = useState(questionId || '');
+  const [selectedGroupId, setSelectedGroupId] = useState(groupId || '');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedWhatsApp, setCopiedWhatsApp] = useState(false);
   const [copiedSlack, setCopiedSlack] = useState(false);
@@ -38,8 +41,11 @@ export function ShareLinkModal({
       } else if (questions && questions.length > 0) {
         setSelectedQuestionId(questions[0].id);
       }
+      if (groupId) {
+        setSelectedGroupId(groupId);
+      }
     }
-  }, [isOpen, defaultType, initialDate, questionId, questions]);
+  }, [isOpen, defaultType, initialDate, questionId, groupId, questions]);
 
   if (!isOpen) return null;
 
@@ -54,6 +60,8 @@ export function ShareLinkModal({
       return `${origin}${pathname}?view=leaderboard`;
     } else if (shareType === 'question') {
       return `${origin}${pathname}?questionId=${selectedQuestionId}`;
+    } else if (shareType === 'group') {
+      return `${origin}${pathname}?groupId=${selectedGroupId}`;
     } else {
       return `${origin}${pathname}?date=${selectedDate}`;
     }
@@ -78,7 +86,24 @@ export function ShareLinkModal({
   // Professional invite templates
   const getWhatsAppMessage = () => {
     if (shareType === 'active') {
-      return `⚽ *SFWC 2026 Prediction League* ⚽\n\nNew active prediction questions are live! Tap the link below to enter your answers and secure your points:\n\n👉 ${shareUrl}\n\nGood luck! 🏆`;
+      const activeQs = questions?.filter(q => q.status === 'active' || q.isActivatedNow) || [];
+      if (activeQs.length === 0) {
+        return `⚽ *SFWC 2026 Prediction League* ⚽\n\nNew active prediction questions are live! Tap the link below to enter your answers and secure your points:\n\n👉 ${shareUrl}\n\nGood luck! 🏆`;
+      }
+      let text = `⚽ *SFWC 2026 Prediction League* ⚽\n\nNew active prediction questions are live! Secure your points:\n\n`;
+      activeQs.forEach((q, i) => {
+        text += `*Q${i + 1}.* ${q.text}\n`;
+      });
+      text += `\n👉 *Submit your answers here:* ${shareUrl}\n\nGood luck! 🏆`;
+      return text;
+    } else if (shareType === 'group') {
+      const groupQs = questions?.filter(q => q.groupId === selectedGroupId) || [];
+      let text = `⚽ *SFWC 2026 Prediction League* ⚽\n\nA new set of prediction questions is live! Secure your points:\n\n`;
+      groupQs.forEach((q, i) => {
+        text += `*Q${i + 1}.* ${q.text}\n`;
+      });
+      text += `\n👉 *Submit your answers here:* ${shareUrl}\n\nGood luck! 🏆`;
+      return text;
     } else if (shareType === 'leaderboard') {
       return `🏆 *SFWC 2026 Leaderboard* 🏆\n\nThe rankings have been updated! Check out the official standings and see where you rank:\n\n👉 ${shareUrl}\n\nKeep predicting! ⚽`;
     } else if (shareType === 'question') {
@@ -91,7 +116,24 @@ export function ShareLinkModal({
 
   const getSlackMessage = () => {
     if (shareType === 'active') {
-      return `⚽ *SFWC 2026 Prediction League* ⚽\nNew active prediction questions are live! Tap the link to enter your answers and secure your points:\n👉 ${shareUrl}\nGood luck! 🏆`;
+      const activeQs = questions?.filter(q => q.status === 'active' || q.isActivatedNow) || [];
+      if (activeQs.length === 0) {
+        return `⚽ *SFWC 2026 Prediction League* ⚽\nNew active prediction questions are live! Tap the link to enter your answers and secure your points:\n👉 ${shareUrl}\nGood luck! 🏆`;
+      }
+      let text = `⚽ *SFWC 2026 Prediction League* ⚽\nNew active prediction questions are live! Secure your points:\n\n`;
+      activeQs.forEach((q, i) => {
+        text += `*Q${i + 1}.* ${q.text}\n`;
+      });
+      text += `\n👉 *Submit your answers here:* ${shareUrl}\nGood luck! 🏆`;
+      return text;
+    } else if (shareType === 'group') {
+      const groupQs = questions?.filter(q => q.groupId === selectedGroupId) || [];
+      let text = `⚽ *SFWC 2026 Prediction League* ⚽\nA new set of prediction questions is live! Secure your points:\n\n`;
+      groupQs.forEach((q, i) => {
+        text += `*Q${i + 1}.* ${q.text}\n`;
+      });
+      text += `\n👉 *Submit your answers here:* ${shareUrl}\nGood luck! 🏆`;
+      return text;
     } else if (shareType === 'leaderboard') {
       return `🏆 *SFWC 2026 Leaderboard* 🏆\nThe rankings have been updated! Check out the official standings and see where you rank:\n👉 ${shareUrl}`;
     } else if (shareType === 'question') {
@@ -282,29 +324,94 @@ export function ShareLinkModal({
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                   2. Generated Link Preview
                 </label>
-                <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 group">
-                  <input
-                    type="text"
-                    readOnly
-                    value={shareUrl}
-                    className="flex-1 bg-transparent border-none text-slate-700 font-mono text-xs select-all outline-none pl-2 truncate"
-                  />
-                  <button
-                    onClick={handleCopyLink}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all shrink-0"
-                  >
-                    {copiedLink ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Link</span>
-                      </>
-                    )}
-                  </button>
+                <div className="space-y-3">
+                  {shareType === 'active' && questions && questions.some(q => q.status === 'active' || q.isActivatedNow) ? (
+                    (() => {
+                      const activeQs = questions.filter(q => q.status === 'active' || q.isActivatedNow);
+                      const groups: Record<string, import('../types').Question[]> = {};
+                      const ungrouped: import('../types').Question[] = [];
+                      activeQs.forEach(q => {
+                        if (q.groupId) {
+                          if (!groups[q.groupId]) groups[q.groupId] = [];
+                          groups[q.groupId].push(q);
+                        } else {
+                          ungrouped.push(q);
+                        }
+                      });
+                      
+                      const origin = window.location.origin;
+                      const pathname = window.location.pathname;
+                      
+                      const links = [];
+                      links.push({
+                        title: 'All Active Questions',
+                        url: `${origin}${pathname}?active=true`
+                      });
+                      
+                      Object.values(groups).forEach(grp => {
+                         links.push({
+                           title: grp[0].title ? `Group: ${grp[0].title}` : `Group (${grp.length} questions)`,
+                           url: `${origin}${pathname}?groupId=${grp[0].groupId}`
+                         });
+                      });
+                      
+                      ungrouped.forEach(q => {
+                        links.push({
+                           title: q.title ? `${q.title}: ${q.text}` : q.text,
+                           url: `${origin}${pathname}?questionId=${q.id}`
+                        });
+                      });
+                      
+                      return links.map((link, idx) => (
+                        <div key={idx} className="flex flex-col gap-1">
+                          <span className="text-xs font-semibold text-slate-600 truncate">{link.title}</span>
+                          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 group">
+                            <input
+                              type="text"
+                              readOnly
+                              value={link.url}
+                              className="flex-1 bg-transparent border-none text-slate-700 font-mono text-xs select-all outline-none pl-2 truncate"
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(link.url);
+                                toast.success('Link copied!');
+                              }}
+                              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all shrink-0"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Copy Link</span>
+                            </button>
+                          </div>
+                        </div>
+                      ));
+                    })()
+                  ) : (
+                    <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 group">
+                      <input
+                        type="text"
+                        readOnly
+                        value={shareUrl}
+                        className="flex-1 bg-transparent border-none text-slate-700 font-mono text-xs select-all outline-none pl-2 truncate"
+                      />
+                      <button
+                        onClick={handleCopyLink}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all shrink-0"
+                      >
+                        {copiedLink ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Link</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 mt-1.5 text-[10px] text-slate-400 font-semibold pl-2">
                   <span>🔒 Safe HTTPS Domain</span>

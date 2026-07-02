@@ -99,7 +99,7 @@ export function GlobalSearch({ participants, questions, answers, onParticipantCl
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-slate-900 truncate">{p.name}</p>
-                          <p className="text-xs text-slate-500 truncate">{p.totalPoints || 0} pts</p>
+                          <p className="text-xs text-slate-500 truncate">Participant ID: {p.uniqueId}</p>
                         </div>
                       </button>
                     ))}

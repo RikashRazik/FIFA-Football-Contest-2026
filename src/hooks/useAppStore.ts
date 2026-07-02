@@ -287,7 +287,7 @@ export function useAppStore() {
 
   const addQuestion = async (question: Omit<Question, 'id'>) => {
     try {
-      const id = Date.now().toString();
+      const id = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9);
       const newQ = { ...question, id };
       await setDoc(doc(db, 'questions', id), newQ);
     } catch (error) {

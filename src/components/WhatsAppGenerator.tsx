@@ -21,6 +21,9 @@ export function WhatsAppGenerator({ questions, participants, isOpen, onClose }: 
     if (activeQuestions.length === 0) return 'No active questions right now.';
 
     let text = '📢 *FIFA 2026 Admin - Active Questions* 📢\n\n';
+    const origin = window.location.origin;
+    const pathname = window.location.pathname;
+
     activeQuestions.forEach((q, i) => {
       text += `*Q${i + 1}.* ${q.text}\n`;
       if (q.options && q.options.length > 0) {
@@ -35,9 +38,7 @@ export function WhatsAppGenerator({ questions, participants, isOpen, onClose }: 
       text += '\n';
     });
     
-    // Add App Link text
-    const origin = window.location.origin;
-    text += `👉 *Answer here:* ${origin}/?tab=active\n`;
+    text += `👉 *Answer here:* ${origin}${pathname}?active=true\n`;
     
     return text;
   };

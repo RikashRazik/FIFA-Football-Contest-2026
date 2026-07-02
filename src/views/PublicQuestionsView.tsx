@@ -434,7 +434,7 @@ export function PublicQuestionsView({
                         let isSelected = false;
                         
                         if (isMultipleChoice) {
-                          isSelected = Array.isArray(currentSelection) && currentSelection.includes(i);
+                          isSelected = Array.isArray(currentSelection) && (currentSelection as number[]).includes(i);
                         } else {
                           isSelected = currentSelection === i;
                         }

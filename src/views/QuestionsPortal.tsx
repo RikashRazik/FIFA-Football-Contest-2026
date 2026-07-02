@@ -115,6 +115,24 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       qsToSave.push(newQ);
     }
 
+    if (qsToSave.length > 1) {
+      const groupId = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9);
+      qsToSave.forEach((q, i) => {
+        q.groupId = groupId;
+        q.createdAt = Date.now() + i;
+        q.date = date;
+        if (endTime) q.endTime = endTime;
+        q.isActivatedNow = isActivatedNow;
+        q.status = isActivatedNow ? 'active' : getInitialQuestionStatus(date);
+      });
+    } else if (qsToSave.length === 1) {
+      qsToSave[0].createdAt = Date.now();
+      qsToSave[0].date = date;
+      if (endTime) qsToSave[0].endTime = endTime;
+      qsToSave[0].isActivatedNow = isActivatedNow;
+      qsToSave[0].status = isActivatedNow ? 'active' : getInitialQuestionStatus(date);
+    }
+
     qsToSave.forEach(q => addQuestion(q));
     
     setText('');
@@ -1103,13 +1121,16 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                   const dayQuestions = upcomingQuestions.filter(q => q.date === date);
                   return (
                     <div key={date} className="space-y-3">
-                      <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-2">
-                        <Calendar className="w-4 h-4 text-indigo-500" /> 
-                        Day {getDayNumber(date)}
-                        <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded ml-2 font-medium text-xs">
-                          {date}
-                        </span>
-                      </h4>
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-indigo-500" /> 
+                          Day {getDayNumber(date)}
+                          <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded ml-2 font-medium text-xs">
+                            {date}
+                          </span>
+                        </h4>
+                        <ShareLinkButton date={date} />
+                      </div>
                       <div className="space-y-3">
                         <AnimatePresence>
                           {dayQuestions.map(q => <QuestionCard key={q.id} q={q} />)}

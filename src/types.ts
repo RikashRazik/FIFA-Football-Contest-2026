@@ -19,6 +19,8 @@ export interface Question {
   isActivatedNow?: boolean;
   columns?: number;
   isMultipleChoice?: boolean;
+  groupId?: string;
+  createdAt?: number;
 }
 
 export interface Participant {

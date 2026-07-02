@@ -15,7 +15,7 @@ import { LoginView } from './views/LoginView';
 import { useAppStore } from './hooks/useAppStore';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from './utils';
 import { ParticipantProfileModal } from './components/ParticipantProfileModal';
-import { Participant } from './types';
+import { Participant, Question } from './types';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { GlobalSearch } from './components/GlobalSearch';
@@ -48,6 +48,10 @@ export default function App() {
     return new URLSearchParams(window.location.search).get('questionId');
   });
   
+  const [publicGroupId, setPublicGroupId] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get('groupId');
+  });
+
   const [isPublicActive, setIsPublicActive] = useState(() => {
     return new URLSearchParams(window.location.search).get('active') === 'true';
   });
@@ -102,6 +106,38 @@ export default function App() {
 
   if (isPublicLeaderboard) {
     return <PublicLeaderboardView participants={store.participants} />;
+  }
+
+  if (publicGroupId) {
+    if (store.isLoading) {
+      return (
+        <div className="min-h-screen bg-[#0a1128] text-slate-200 flex flex-col items-center justify-center p-6 font-sans">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-400 font-medium">Loading prediction group...</p>
+          </div>
+        </div>
+      );
+    }
+    const groupQuestions = store.questions.filter(q => q.groupId === publicGroupId);
+    if (groupQuestions.length > 0) {
+      // Sort them by creation time or id
+      groupQuestions.sort((a, b) => {
+        if (a.createdAt && b.createdAt) return a.createdAt - b.createdAt;
+        return a.id.localeCompare(b.id);
+      });
+      return (
+        <PublicQuestionsView 
+          date={groupQuestions[0].date} 
+          questions={groupQuestions} 
+          participants={store.participants} 
+          answers={store.answers} 
+          addAnswer={store.addAnswer} 
+          isActiveView={false} 
+          isLoading={store.isLoading}
+        />
+      );
+    }
   }
 
   if (publicQuestionId) {
