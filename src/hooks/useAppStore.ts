@@ -319,7 +319,7 @@ export function useAppStore() {
       if (existingAnswer) {
         await updateDoc(doc(db, 'answers', existingAnswer.id), { answer, timestamp: new Date().toISOString() });
       } else {
-        const id = Date.now().toString();
+        const id = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9);
         const newAnswer: Answer = {
           id,
           questionId,
