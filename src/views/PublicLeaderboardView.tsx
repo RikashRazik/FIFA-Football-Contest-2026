@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Participant } from '../types';
-import { Trophy } from 'lucide-react';
+import { Trophy, AlertCircle } from 'lucide-react';
 
 interface PublicLeaderboardViewProps {
   participants: Participant[];
+  isEnabled?: boolean;
 }
 
-export const PublicLeaderboardView: React.FC<PublicLeaderboardViewProps> = ({ participants }) => {
+export const PublicLeaderboardView: React.FC<PublicLeaderboardViewProps> = ({ participants, isEnabled = true }) => {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const maxDays = participants.reduce((max, p) => Math.max(max, p.dailyScores?.length || 0), 0);
 
@@ -18,7 +19,22 @@ export const PublicLeaderboardView: React.FC<PublicLeaderboardViewProps> = ({ pa
         }
       });
     }
-  }, [participants]);
+  }, [participants, isEnabled]);
+
+  if (!isEnabled) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 md:p-12 font-sans">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="flex justify-center mb-6">
+            <img src="https://lh3.googleusercontent.com/d/1ICYyiBiZbuE_gsUv3tqsH6pFXzEst_D3" alt="Logo" className="w-24 h-24 md:w-32 md:h-32 object-contain opacity-50" referrerPolicy="no-referrer" />
+          </div>
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
+          <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight uppercase">Leaderboard Updating</h1>
+          <p className="text-slate-400 font-medium">The leaderboard is currently being updated with the latest scores. Please check back shortly.</p>
+        </div>
+      </div>
+    );
+  }
 
   const sorted = [...participants].map(p => ({
     ...p,

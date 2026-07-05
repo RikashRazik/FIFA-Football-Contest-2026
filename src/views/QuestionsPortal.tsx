@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
 import { Question, QuestionType, Participant, Answer } from '../types';
-import { Plus, CheckCircle2, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Save, X, Link as LinkIcon, Users, Share2 } from 'lucide-react';
+import { Plus, CheckCircle2, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp, Edit2, Save, X, Link as LinkIcon, Users, Share2, RotateCcw } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { getDynamicQuestionStatus } from '../utils';
 import { ShareLinkModal } from '../components/ShareLinkModal';
@@ -16,9 +16,10 @@ interface QuestionsPortalProps {
   deleteQuestion: (id: string) => void;
   isAddModalOpen: boolean;
   setIsAddModalOpen: (isOpen: boolean) => void;
+  onNavigateToEvaluate?: () => void;
 }
 
-export function QuestionsPortal({ questions, participants, answers, addQuestion, updateQuestion, deleteQuestion, isAddModalOpen, setIsAddModalOpen }: QuestionsPortalProps) {
+export function QuestionsPortal({ questions, participants, answers, addQuestion, updateQuestion, deleteQuestion, isAddModalOpen, setIsAddModalOpen, onNavigateToEvaluate }: QuestionsPortalProps) {
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
   const [type, setType] = useState<QuestionType>('daily');
@@ -634,6 +635,19 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
           )}
         </div>
         <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-slate-100">
+          {getDynamicQuestionStatus(q) === 'past' && (
+            <button 
+              onClick={() => {
+                updateQuestion(q.id, { isEvaluated: false, status: 'active', correctAnswer: '' });
+                toast.success('Question moved to Evaluate tab');
+                if (onNavigateToEvaluate) onNavigateToEvaluate();
+              }}
+              className="p-1.5 text-slate-400 hover:bg-orange-50 hover:text-orange-600 rounded-md transition-colors"
+              title="Move to Evaluate"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          )}
           {getDynamicQuestionStatus(q) === 'upcoming' && !q.isActivatedNow && (
             <button 
               onClick={() => {

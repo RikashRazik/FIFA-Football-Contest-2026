@@ -40,3 +40,8 @@ export interface Answer {
   answer: string;
   timestamp: string;
 }
+
+export interface AppSettings {
+  isPublicLeaderboardEnabled?: boolean;
+}
+

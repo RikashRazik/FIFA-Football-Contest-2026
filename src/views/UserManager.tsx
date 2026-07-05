@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Participant } from '../types';
-import { Search, Plus, Minus, UserPlus, Edit2, Check, X, Trash2, Users, MoreVertical, Download, Upload, ArrowDownAZ, Clock } from 'lucide-react';
+import { Search, Plus, Minus, UserPlus, Edit2, Check, X, Trash2, Users, MoreVertical, Download, Upload, ArrowDownAZ, Clock, Database } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { ImportModal } from '../components/ImportModal';
 import { ExportModal } from '../components/ExportModal';
+import { BatchScoreModal } from '../components/BatchScoreModal';
 import { toast } from 'react-hot-toast';
 
 interface UserManagerProps {
@@ -11,6 +12,7 @@ interface UserManagerProps {
   addParticipant: (name: string, uniqueId?: string) => Promise<string | undefined> | void;
   updateParticipantName: (id: string, name: string) => void;
   updateParticipantDailyScore: (id: string, dayIndex: number, score: number) => void;
+  batchUpdateParticipantScores: (updates: { id: string; dailyScores: number[] }[]) => void;
   removeParticipantDailyScore: (id: string, dayIndex: number) => void;
   deleteParticipant: (id: string) => void;
   onParticipantClick?: (participant: Participant) => void;
@@ -21,6 +23,7 @@ export function UserManager({
   addParticipant, 
   updateParticipantName, 
   updateParticipantDailyScore, 
+  batchUpdateParticipantScores,
   removeParticipantDailyScore,
   deleteParticipant,
   onParticipantClick
@@ -40,6 +43,7 @@ export function UserManager({
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isBatchScoreModalOpen, setIsBatchScoreModalOpen] = useState(false);
   const [generatedUserId, setGeneratedUserId] = useState<string | null>(null);
 
   const sortedParticipants = [...participants].sort((a, b) => {
@@ -151,6 +155,13 @@ export function UserManager({
           {sortOrder === 'alphabetical' ? <ArrowDownAZ className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
         </button>
         <div className="flex justify-end gap-3 flex-wrap">
+          <button 
+            onClick={() => setIsBatchScoreModalOpen(true)}
+            className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 p-2.5 rounded-lg transition-all shadow-sm flex items-center justify-center"
+            title="Batch Update Scores"
+          >
+            <Database className="w-5 h-5" />
+          </button>
           <button 
             onClick={() => setIsImportModalOpen(true)}
             className="bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 p-2.5 rounded-lg transition-all shadow-sm flex items-center justify-center"
@@ -496,6 +507,14 @@ export function UserManager({
              addParticipant(p.name, p.uniqueId);
           });
         }}
+      />
+
+      {/* Batch Score Modal */}
+      <BatchScoreModal
+        isOpen={isBatchScoreModalOpen}
+        onClose={() => setIsBatchScoreModalOpen(false)}
+        participants={participants}
+        onBatchUpdate={batchUpdateParticipantScores}
       />
     </div>
   );

@@ -12,6 +12,7 @@ import { EvaluateAnswers } from './views/EvaluateAnswers';
 import { PublicQuestionsView } from './views/PublicQuestionsView';
 import { PublicLeaderboardView } from './views/PublicLeaderboardView';
 import { LoginView } from './views/LoginView';
+import { Diagnostics } from './views/Diagnostics';
 import { useAppStore } from './hooks/useAppStore';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from './utils';
 import { ParticipantProfileModal } from './components/ParticipantProfileModal';
@@ -105,7 +106,7 @@ export default function App() {
   };
 
   if (isPublicLeaderboard) {
-    return <PublicLeaderboardView participants={store.participants} />;
+    return <PublicLeaderboardView participants={store.participants} isEnabled={store.appSettings?.isPublicLeaderboardEnabled ?? true} />;
   }
 
   if (publicGroupId) {
@@ -276,7 +277,9 @@ export default function App() {
                     participants={store.participants} 
                     questions={store.questions}
                     answers={store.answers}
-                    onNavigate={setActiveTab} 
+                    onNavigate={setActiveTab}
+                    appSettings={store.appSettings}
+                    updateAppSettings={store.updateAppSettings}
                   />
                 )}
                 {activeTab === 'leaderboard' && (
@@ -296,6 +299,7 @@ export default function App() {
                     deleteQuestion={store.deleteQuestion}
                     isAddModalOpen={isAddModalOpen}
                     setIsAddModalOpen={setIsAddModalOpen}
+                    onNavigateToEvaluate={() => setActiveTab('evaluate')}
                   />
                 )}
                 {activeTab === 'users' && (
@@ -304,6 +308,7 @@ export default function App() {
                     addParticipant={store.addParticipant}
                     updateParticipantName={store.updateParticipantName}
                     updateParticipantDailyScore={store.updateParticipantDailyScore}
+                    batchUpdateParticipantScores={store.batchUpdateParticipantScores}
                     removeParticipantDailyScore={store.removeParticipantDailyScore}
                     deleteParticipant={store.deleteParticipant}
                     onParticipantClick={handleParticipantClick}
@@ -328,6 +333,9 @@ export default function App() {
                     updateQuestion={store.updateQuestion}
                     addAnswer={store.addAnswer}
                   />
+                )}
+                {activeTab === 'diagnostics' && (
+                  <Diagnostics />
                 )}
               </ErrorBoundary>
             </motion.div>

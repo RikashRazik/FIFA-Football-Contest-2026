@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Question, Participant, Answer } from '../types';
-import { CheckCircle, AlertCircle, ChevronRight, Check, Settings2, Zap, Download } from 'lucide-react';
+import { CheckCircle, AlertCircle, ChevronRight, Check, Settings2, Zap, Download, Edit3, Calendar, X, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from '../utils';
 
@@ -31,6 +31,38 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
   const [editedAnswerValue, setEditedAnswerValue] = useState<string>('');
   const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [bulkAssignValue, setBulkAssignValue] = useState<string>('');
+
+  const [reactivateQuestion, setReactivateQuestion] = useState<Question | null>(null);
+  const [reactivateDate, setReactivateDate] = useState('');
+  const [reactivateEndTime, setReactivateEndTime] = useState('');
+
+  const handleOpenReactivate = (q: Question, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReactivateQuestion(q);
+    const today = new Date().toISOString().split('T')[0];
+    const initialDate = q.date && q.date >= today ? q.date : today;
+    setReactivateDate(initialDate);
+    setReactivateEndTime(q.endTime || '');
+  };
+
+  const handleReactivateSave = async () => {
+    if (!reactivateQuestion) return;
+    setIsUpdating(true);
+    try {
+      await updateQuestion(reactivateQuestion.id, {
+        date: reactivateDate,
+        endTime: reactivateEndTime,
+        status: 'active',
+        isActivatedNow: true
+      });
+      setReactivateQuestion(null);
+      toast.success('Question expiry updated and reactivated!');
+    } catch (e) {
+      toast.error('Failed to reactivate question');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleParseBulk = () => {
     if (!bulkText.trim()) return;
@@ -346,9 +378,17 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
             
             return (
               <div key={q.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300">
-                <button
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleSelectQuestion(q)}
-                  className={`w-full text-left p-4 sm:p-6 transition-colors ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectQuestion(q);
+                    }
+                  }}
+                  className={`w-full text-left p-4 sm:p-6 transition-colors cursor-pointer ${
                     isSelected ? 'bg-indigo-50/50 border-b border-indigo-100' : 'hover:bg-slate-50'
                   }`}
                 >
@@ -369,11 +409,20 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
                       </div>
                       <h3 className={`text-lg font-bold line-clamp-2 ${isSelected ? 'text-indigo-950' : 'text-slate-800'}`}>{q.text}</h3>
                     </div>
-                    <div className={`p-2 rounded-full transition-transform duration-300 shrink-0 ${isSelected ? 'bg-indigo-100 text-indigo-600 rotate-90' : 'bg-slate-100 text-slate-400'}`}>
-                      <ChevronRight className="w-5 h-5" />
+                    <div className="flex items-center gap-3 shrink-0">
+                      <button
+                        onClick={(e) => handleOpenReactivate(q, e)}
+                        className="p-2 bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 text-slate-400 rounded-lg transition-all"
+                        title="Edit Expiry & Reactivate"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <div className={`p-2 rounded-full transition-transform duration-300 ${isSelected ? 'bg-indigo-100 text-indigo-600 rotate-90' : 'bg-slate-100 text-slate-400'}`}>
+                        <ChevronRight className="w-5 h-5" />
+                      </div>
                     </div>
                   </div>
-                </button>
+                </div>
                 
                 {isSelected && (
                   <div className="p-4 sm:p-6 animate-in slide-in-from-top-2 fade-in duration-300 border-t border-slate-100 bg-white">
@@ -889,6 +938,71 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
           })
         )}
       </div>
+
+      {reactivateQuestion && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-indigo-600" />
+                Edit Expiry & Reactivate
+              </h3>
+              <button 
+                onClick={() => setReactivateQuestion(null)}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-500 mb-2">
+                Update the date and time to reactivate this question. It will appear in the active questions list until the new expiry time.
+              </p>
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Date</label>
+                <input
+                  type="date"
+                  value={reactivateDate}
+                  onChange={e => setReactivateDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-slate-50/50 text-slate-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Time (End Time)</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <Clock className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <input
+                    type="time"
+                    value={reactivateEndTime}
+                    onChange={e => setReactivateEndTime(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-slate-50/50 text-slate-800"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+              <button
+                onClick={() => setReactivateQuestion(null)}
+                className="px-5 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-200 bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReactivateSave}
+                disabled={isUpdating}
+                className="px-5 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isUpdating ? 'Saving...' : 'Save & Reactivate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -18,6 +18,7 @@ export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluat
     { id: 'questions', label: 'Questions Portal', shortLabel: 'Questions', icon: HelpCircle },
     { id: 'active-questions', label: 'Active Questions', shortLabel: 'Active', icon: Activity, count: activeCount },
     { id: 'evaluate', label: 'Evaluate Answers', shortLabel: 'Evaluate', icon: CheckCircle, count: evaluateCount },
+    { id: 'diagnostics', label: 'Diagnostics', shortLabel: 'Tools', icon: Activity },
   ];
 
   return (

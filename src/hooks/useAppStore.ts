@@ -1,5 +1,6 @@
+import { toast } from 'react-hot-toast';
 import { useState, useEffect } from 'react';
-import { Participant, Question, Answer } from '../types';
+import { Participant, Question, Answer, AppSettings } from '../types';
 import { db, auth } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, getDoc, updateDoc, runTransaction } from 'firebase/firestore';
 
@@ -54,6 +55,7 @@ export function useAppStore() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [appSettings, setAppSettings] = useState<AppSettings>({ isPublicLeaderboardEnabled: true });
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -149,20 +151,30 @@ export function useAppStore() {
       handleFirestoreError(error, OperationType.GET, 'answers');
     });
 
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'appSettings'), { includeMetadataChanges: true }, (snap) => {
+      if (snap.exists()) {
+        setAppSettings(snap.data() as AppSettings);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings');
+    });
+
     return () => {
       unsubParticipants();
       unsubQuestions();
       unsubAnswers();
+      unsubSettings();
     };
   }, []);
 
   const forceRefresh = async () => {
     setIsSyncing(true);
     try {
-      const [pSnap, qSnap, aSnap] = await Promise.all([
+      const [pSnap, qSnap, aSnap, sSnap] = await Promise.all([
         getDocs(collection(db, 'participants')),
         getDocs(collection(db, 'questions')),
-        getDocs(collection(db, 'answers'))
+        getDocs(collection(db, 'answers')),
+        getDoc(doc(db, 'settings', 'appSettings'))
       ]);
       
       setParticipants(pSnap.docs.map(d => ({ ...d.data(), id: d.id } as Participant)));
@@ -172,10 +184,23 @@ export function useAppStore() {
       }));
       
       setAnswers(aSnap.docs.map(d => ({ ...d.data(), id: d.id } as Answer)));
+
+      if (sSnap.exists()) {
+        setAppSettings(sSnap.data() as AppSettings);
+      }
     } catch (err) {
       console.error("Force refresh failed", err);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const updateAppSettings = async (newSettings: Partial<AppSettings>) => {
+    try {
+      const docRef = doc(db, 'settings', 'appSettings');
+      await setDoc(docRef, newSettings, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings');
     }
   };
 
@@ -252,6 +277,21 @@ export function useAppStore() {
         const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
         transaction.update(docRef, { dailyScores: newDailyScores, dailyPoints: newDailyPoints });
       });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'participants');
+    }
+  };
+
+  const batchUpdateParticipantScores = async (updates: { id: string, dailyScores: number[] }[]) => {
+    try {
+      const batch = writeBatch(db);
+      for (const update of updates) {
+        const docRef = doc(db, 'participants', update.id);
+        const newDailyPoints = update.dailyScores.reduce((sum, s) => sum + s, 0);
+        batch.update(docRef, { dailyScores: update.dailyScores, dailyPoints: newDailyPoints });
+      }
+      await batch.commit();
+      toast.success(`Successfully batch updated ${updates.length} participants.`);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }
@@ -350,13 +390,16 @@ export function useAppStore() {
     participants,
     questions,
     answers,
+    appSettings,
     isLoading,
     isSyncing,
     forceRefresh,
+    updateAppSettings,
     updateParticipantScore,
     addParticipant,
     updateParticipantName,
     updateParticipantDailyScore,
+    batchUpdateParticipantScores,
     removeParticipantDailyScore,
     deleteParticipant,
     addQuestion,

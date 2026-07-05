@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Participant, Question, Answer } from '../types';
-import { Users, Trophy, HelpCircle, ArrowUpRight, Activity, Clock, X, CheckSquare, AlertCircle, Calendar, BarChart3, MessageSquare } from 'lucide-react';
+import { AppSettings, Participant, Question, Answer } from '../types';
+import { Users, Trophy, HelpCircle, ArrowUpRight, Activity, Clock, X, CheckSquare, AlertCircle, Calendar, BarChart3, MessageSquare, Shield, ShieldOff } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
@@ -16,9 +16,11 @@ interface DashboardProps {
   questions: Question[];
   answers: Answer[];
   onNavigate: (tab: string) => void;
+  appSettings?: AppSettings;
+  updateAppSettings?: (settings: Partial<AppSettings>) => Promise<void>;
 }
 
-export function Dashboard({ participants, questions, answers, onNavigate }: DashboardProps) {
+export function Dashboard({ participants, questions, answers, onNavigate, appSettings, updateAppSettings }: DashboardProps) {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isWaModalOpen, setIsWaModalOpen] = useState(false);
   const [selectedTargetQuestionId, setSelectedTargetQuestionId] = useState<string | null>(null);
@@ -88,7 +90,36 @@ export function Dashboard({ participants, questions, answers, onNavigate }: Dash
           </div>
         </div>
         
-        <div className="z-10 mt-4 md:mt-0">
+        <div className="z-10 mt-4 md:mt-0 flex gap-3">
+          <button
+            onClick={async () => {
+              if (updateAppSettings) {
+                const current = appSettings?.isPublicLeaderboardEnabled ?? true;
+                const nextState = !current;
+                await updateAppSettings({ isPublicLeaderboardEnabled: nextState });
+                toast.success(`Public leaderboard is now ${nextState ? 'enabled' : 'disabled'}`);
+              }
+            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg ${
+              (appSettings?.isPublicLeaderboardEnabled ?? true) 
+                ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-500/20' 
+                : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
+            }`}
+            title="Toggle Public Leaderboard Link Accessibility"
+          >
+            {(appSettings?.isPublicLeaderboardEnabled ?? true) ? (
+              <>
+                <Shield className="w-5 h-5" />
+                <span className="hidden sm:inline">Leaderboard Live</span>
+              </>
+            ) : (
+              <>
+                <ShieldOff className="w-5 h-5" />
+                <span className="hidden sm:inline">Leaderboard Hidden</span>
+              </>
+            )}
+          </button>
+          
           <button 
             onClick={() => setIsWaModalOpen(true)}
             className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-emerald-500/20"
