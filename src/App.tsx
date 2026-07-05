@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Loader2, Cloud, CloudOff, CheckCircle2, RefreshCw, LogOut } from 'lucide-react';
-import { Toaster } from 'react-hot-toast';
+import { Users, Plus, Loader2, Cloud, CloudOff, CheckCircle2, RefreshCw, LogOut, Wrench } from 'lucide-react';
+import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './views/Dashboard';
@@ -13,6 +13,7 @@ import { PublicQuestionsView } from './views/PublicQuestionsView';
 import { PublicLeaderboardView } from './views/PublicLeaderboardView';
 import { LoginView } from './views/LoginView';
 import { Diagnostics } from './views/Diagnostics';
+import { MaintenanceView } from './views/MaintenanceView';
 import { useAppStore } from './hooks/useAppStore';
 import { isQuestionTimedOut, getDynamicQuestionStatus } from './utils';
 import { ParticipantProfileModal } from './components/ParticipantProfileModal';
@@ -81,6 +82,41 @@ export default function App() {
     // since we initialized synchronously above.
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isOnline && store.lastSyncTime) {
+        const diff = Date.now() - store.lastSyncTime;
+        if (diff > 5 * 60 * 1000) {
+          toast((t) => (
+            <div className="flex flex-col gap-2">
+              <span className="font-semibold text-slate-800">Data might be stale</span>
+              <span className="text-sm text-slate-600">Last sync was over 5 minutes ago.</span>
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => {
+                    store.forceRefresh();
+                    toast.dismiss(t.id);
+                  }}
+                  className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded hover:bg-indigo-700"
+                >
+                  Refresh Now
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded hover:bg-slate-200"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ), { duration: 10000, id: 'stale-data-warning' });
+        }
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [store.lastSyncTime, isOnline, store]);
+
   const [isSlowConnection, setIsSlowConnection] = useState(false);
 
   useEffect(() => {
@@ -104,6 +140,11 @@ export default function App() {
     localStorage.removeItem('fifa_admin_auth');
     setIsAuthenticated(false);
   };
+
+  const isAnyPublicView = isPublicLeaderboard || publicGroupId || publicDate || publicQuestionId || isPublicActive;
+  if (isAnyPublicView && store.appSettings?.isMaintenanceMode) {
+    return <MaintenanceView />;
+  }
 
   if (isPublicLeaderboard) {
     return <PublicLeaderboardView participants={store.participants} isEnabled={store.appSettings?.isPublicLeaderboardEnabled ?? true} />;
@@ -223,6 +264,23 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3 md:gap-4 shrink-0">
+            <button
+              onClick={async () => {
+                if (store.updateAppSettings) {
+                  const current = store.appSettings?.isMaintenanceMode ?? false;
+                  await store.updateAppSettings({ isMaintenanceMode: !current });
+                  toast.success(`Maintenance Mode ${!current ? 'Enabled' : 'Disabled'}`);
+                }
+              }}
+              className={`hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-xs font-medium border transition-colors ${
+                store.appSettings?.isMaintenanceMode 
+                  ? 'bg-amber-100 border-amber-300 text-amber-700 hover:bg-amber-200' 
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              title="Toggle Maintenance Mode"
+            >
+              <Wrench className="w-4 h-4" />
+            </button>
             <button
               onClick={() => store.forceRefresh()}
               disabled={store.isSyncing || !isOnline}

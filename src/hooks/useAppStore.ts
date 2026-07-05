@@ -58,6 +58,7 @@ export function useAppStore() {
   const [appSettings, setAppSettings] = useState<AppSettings>({ isPublicLeaderboardEnabled: true });
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastSyncTime, setLastSyncTime] = useState<number>(Date.now());
 
   useEffect(() => {
     // Migration & listeners setup
@@ -130,6 +131,7 @@ export function useAppStore() {
     const unsubParticipants = onSnapshot(collection(db, 'participants'), { includeMetadataChanges: true }, (snap) => {
       setParticipants(snap.docs.map(d => ({ ...d.data(), id: d.id } as Participant)));
       setIsSyncing(snap.metadata.hasPendingWrites);
+      setLastSyncTime(Date.now());
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'participants');
     });
@@ -140,6 +142,7 @@ export function useAppStore() {
         return a.date.localeCompare(b.date) || a.text.localeCompare(b.text);
       }));
       setIsSyncing(prev => prev || snap.metadata.hasPendingWrites);
+      setLastSyncTime(Date.now());
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'questions');
     });
@@ -147,6 +150,7 @@ export function useAppStore() {
     const unsubAnswers = onSnapshot(collection(db, 'answers'), { includeMetadataChanges: true }, (snap) => {
       setAnswers(snap.docs.map(d => ({ ...d.data(), id: d.id } as Answer)));
       setIsSyncing(prev => prev || snap.metadata.hasPendingWrites);
+      setLastSyncTime(Date.now());
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'answers');
     });
@@ -188,6 +192,7 @@ export function useAppStore() {
       if (sSnap.exists()) {
         setAppSettings(sSnap.data() as AppSettings);
       }
+      setLastSyncTime(Date.now());
     } catch (err) {
       console.error("Force refresh failed", err);
     } finally {
@@ -393,6 +398,7 @@ export function useAppStore() {
     appSettings,
     isLoading,
     isSyncing,
+    lastSyncTime,
     forceRefresh,
     updateAppSettings,
     updateParticipantScore,

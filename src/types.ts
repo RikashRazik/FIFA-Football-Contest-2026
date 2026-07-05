@@ -43,5 +43,6 @@ export interface Answer {
 
 export interface AppSettings {
   isPublicLeaderboardEnabled?: boolean;
+  isMaintenanceMode?: boolean;
 }
 
