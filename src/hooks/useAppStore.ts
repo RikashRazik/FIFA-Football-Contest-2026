@@ -391,6 +391,75 @@ export function useAppStore() {
     }
   };
 
+  const exportFullState = () => {
+    const data = {
+      participants,
+      questions,
+      answers,
+      appSettings,
+      exportDate: new Date().toISOString()
+    };
+    return JSON.stringify(data, null, 2);
+  };
+
+  const importFullState = async (jsonData: string) => {
+    try {
+      const parsed = JSON.parse(jsonData);
+      const { participants: newParticipants, questions: newQuestions, answers: newAnswers, appSettings: newSettings } = parsed;
+
+      const batch = writeBatch(db);
+
+      // We won't delete existing data to be safe, just upsert (set) the imported data.
+      // If we need to replace completely, we'd have to query and delete first.
+      // Let's do a full replace for data provided in the JSON to be a true "fallback mechanism"
+      // Wait, Firestore batch is limited to 500 operations. If there's a lot of data, we need multiple batches.
+      
+      const commitBatches = async (ops: (() => void)[]) => {
+        for (let i = 0; i < ops.length; i += 450) {
+          const currentBatch = writeBatch(db);
+          ops.slice(i, i + 450).forEach(op => {
+             // to execute the batch set/delete, we actually need to pass the batch instance to the operations,
+             // or just run them directly.
+             // A simpler way:
+          });
+          // Wait, this is getting complicated.
+        }
+      };
+
+      // Let's just create chunks of 450 operations
+      const allOps: { type: 'set', collection: string, id: string, data: any }[] = [];
+      
+      if (Array.isArray(newParticipants)) {
+        newParticipants.forEach((p: any) => allOps.push({ type: 'set', collection: 'participants', id: p.id, data: p }));
+      }
+      if (Array.isArray(newQuestions)) {
+        newQuestions.forEach((q: any) => allOps.push({ type: 'set', collection: 'questions', id: q.id, data: q }));
+      }
+      if (Array.isArray(newAnswers)) {
+        newAnswers.forEach((a: any) => allOps.push({ type: 'set', collection: 'answers', id: a.id, data: a }));
+      }
+      if (newSettings) {
+        allOps.push({ type: 'set', collection: 'settings', id: 'appSettings', data: newSettings });
+      }
+
+      for (let i = 0; i < allOps.length; i += 450) {
+        const currentBatch = writeBatch(db);
+        const chunk = allOps.slice(i, i + 450);
+        chunk.forEach(op => {
+          if (op.type === 'set') {
+            currentBatch.set(doc(db, op.collection, op.id), op.data);
+          }
+        });
+        await currentBatch.commit();
+      }
+
+      toast.success('Database state imported successfully');
+    } catch (error) {
+      console.error(error);
+      handleFirestoreError(error, OperationType.WRITE, 'import');
+    }
+  };
+
   return {
     participants,
     questions,
@@ -401,6 +470,8 @@ export function useAppStore() {
     lastSyncTime,
     forceRefresh,
     updateAppSettings,
+    exportFullState,
+    importFullState,
     updateParticipantScore,
     addParticipant,
     updateParticipantName,

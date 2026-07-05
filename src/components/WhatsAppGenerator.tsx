@@ -58,7 +58,7 @@ export function WhatsAppGenerator({ questions, participants, isOpen, onClose }: 
     });
 
     const origin = window.location.origin;
-    text += `\n👉 *View full leaderboard:* ${origin}/\n`;
+    text += `\n👉 *View full leaderboard:* ${origin}/?view=leaderboard\n`;
 
     return text;
   };

@@ -78,59 +78,7 @@ export function Dashboard({ participants, questions, answers, onNavigate, appSet
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
-      <div className="bg-gradient-to-br from-[#0a1128] to-[#1a2b5e] p-6 md:p-8 rounded-2xl shadow-xl border border-blue-900/50 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 text-center md:text-left relative overflow-hidden">
-        <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 z-10">
-          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-blue-500 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
-          <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-indigo-500 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
-          
-          <img src="https://lh3.googleusercontent.com/d/1ICYyiBiZbuE_gsUv3tqsH6pFXzEst_D3" alt="Logo" className="w-20 h-20 md:w-24 md:h-24 object-contain filter drop-shadow-2xl relative z-10" referrerPolicy="no-referrer" />
-          <div className="relative z-10">
-            <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white uppercase">Dashboard Overview</h2>
-            <p className="text-blue-200 mt-1 md:mt-2 text-sm md:text-base">Welcome back. Here's what's happening in the contest today.</p>
-          </div>
-        </div>
-        
-        <div className="z-10 mt-4 md:mt-0 flex gap-3">
-          <button
-            onClick={async () => {
-              if (updateAppSettings) {
-                const current = appSettings?.isPublicLeaderboardEnabled ?? true;
-                const nextState = !current;
-                await updateAppSettings({ isPublicLeaderboardEnabled: nextState });
-                toast.success(`Public leaderboard is now ${nextState ? 'enabled' : 'disabled'}`);
-              }
-            }}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg ${
-              (appSettings?.isPublicLeaderboardEnabled ?? true) 
-                ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-500/20' 
-                : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
-            }`}
-            title="Toggle Public Leaderboard Link Accessibility"
-          >
-            {(appSettings?.isPublicLeaderboardEnabled ?? true) ? (
-              <>
-                <Shield className="w-5 h-5" />
-                <span className="hidden sm:inline">Leaderboard Live</span>
-              </>
-            ) : (
-              <>
-                <ShieldOff className="w-5 h-5" />
-                <span className="hidden sm:inline">Leaderboard Hidden</span>
-              </>
-            )}
-          </button>
-          
-          <button 
-            onClick={() => setIsWaModalOpen(true)}
-            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-emerald-500/20"
-          >
-            <MessageSquare className="w-5 h-5" />
-            <span className="hidden sm:inline">WhatsApp</span> Announce
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-5 pt-4">
         <Tooltip content="Total number of users registered for the contest." position="bottom">
           <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden h-full w-full">
             <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 opacity-50"></div>

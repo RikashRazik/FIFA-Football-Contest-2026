@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Users, Plus, Loader2, Cloud, CloudOff, CheckCircle2, RefreshCw, LogOut, Wrench } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Users, Plus, Loader2, Cloud, CloudOff, CheckCircle2, RefreshCw, LogOut, Wrench, Download, Upload, ChevronDown } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
@@ -21,11 +21,17 @@ import { Participant, Question } from './types';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { GlobalSearch } from './components/GlobalSearch';
+import { AdminMenuItems } from './components/AdminMenu';
+import { WhatsAppGenerator } from './components/WhatsAppGenerator';
+import { MessageSquare, Bell, Clock } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isWaModalOpen, setIsWaModalOpen] = useState(false);
+  const [isActivityMenuOpen, setIsActivityMenuOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -130,6 +136,43 @@ export default function App() {
     }
     return () => clearTimeout(timeout);
   }, [store.isSyncing, isOnline]);
+
+  const handleExportState = () => {
+    try {
+      const jsonStr = store.exportFullState();
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `fifa_admin_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Database exported successfully');
+    } catch (e) {
+      toast.error('Failed to export database');
+    }
+  };
+
+  const handleImportState = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const content = e.target?.result as string;
+      if (content) {
+        if (window.confirm('Are you sure you want to overwrite the current database with this JSON backup? This could affect live data.')) {
+          await store.importFullState(content);
+        }
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    event.target.value = '';
+  };
 
   const handleLogin = () => {
     localStorage.setItem('fifa_admin_auth', 'true');
@@ -241,16 +284,113 @@ export default function App() {
   const evaluateCount = store.questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !q.isEvaluated && isQuestionTimedOut(q)).length;
   const activeCount = store.questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !isQuestionTimedOut(q)).length;
 
+  const recentActivities = [
+    ...store.answers.map(a => ({
+      id: a.id,
+      type: 'answer',
+      title: `${store.participants.find(p => p.id === a.participantId)?.name || 'Someone'} answered`,
+      subtitle: store.questions.find(q => q.id === a.questionId)?.text || 'a question',
+      timestamp: new Date(a.timestamp).getTime()
+    })),
+    ...store.questions.map(q => ({
+      id: q.id + '-created',
+      type: 'question',
+      title: 'Question Updated',
+      subtitle: q.text,
+      timestamp: q.createdAt || Date.now() - 86400000
+    }))
+  ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
+
+  const adminMenuNode = (
+    <AdminMenuItems 
+      onImport={handleImportState}
+      onExport={handleExportState}
+      isMaintenanceMode={store.appSettings?.isMaintenanceMode ?? false}
+      onToggleMaintenance={async () => {
+        if (store.updateAppSettings) {
+          const current = store.appSettings?.isMaintenanceMode ?? false;
+          await store.updateAppSettings({ isMaintenanceMode: !current });
+          toast.success(`Maintenance Mode ${!current ? 'Enabled' : 'Disabled'}`);
+        }
+      }}
+      isLeaderboardLive={store.appSettings?.isPublicLeaderboardEnabled ?? true}
+      onToggleLeaderboard={async () => {
+        if (store.updateAppSettings) {
+          const current = store.appSettings?.isPublicLeaderboardEnabled ?? true;
+          await store.updateAppSettings({ isPublicLeaderboardEnabled: !current });
+          toast.success(`Public Leaderboard ${!current ? 'Enabled' : 'Disabled'}`);
+        }
+      }}
+      isSyncing={store.isSyncing}
+      isOnline={isOnline}
+      isSlowConnection={isSlowConnection}
+      onRefresh={() => store.forceRefresh()}
+      onLogout={handleLogout}
+      onUsers={() => {
+        setActiveTab('users');
+        setIsMobileMenuOpen(false);
+      }}
+      onWhatsAppAnnounce={() => {
+        setIsWaModalOpen(true);
+        setIsMobileMenuOpen(false);
+      }}
+    />
+  );
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       <Toaster position="top-right" />
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onLogout={handleLogout} activeCount={activeCount} evaluateCount={evaluateCount} />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onLogout={handleLogout} activeCount={activeCount} evaluateCount={evaluateCount} adminMenuContent={adminMenuNode} />
       
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50 pb-[72px] md:pb-0 relative">
-        <header className="h-16 bg-[#0a1128] border-b border-slate-800/80 flex items-center justify-between px-4 md:px-8 flex-shrink-0 md:bg-white md:border-slate-200">
+        <header className="h-16 bg-[#0a1128] border-b border-slate-800/80 flex items-center justify-between px-4 md:px-8 flex-shrink-0 shadow-md relative z-20">
           <div className="flex items-center gap-3">
             <img src="https://lh3.googleusercontent.com/d/1ICYyiBiZbuE_gsUv3tqsH6pFXzEst_D3" alt="Logo" className="w-10 h-10 object-contain md:hidden" referrerPolicy="no-referrer" />
-            <h1 className="text-lg md:text-xl font-bold text-white md:text-slate-800 tracking-wider uppercase md:normal-case md:tracking-normal truncate pr-2 hidden sm:block">SFWC Admin</h1>
+            
+            <div className="hidden sm:block relative">
+              <button 
+                onClick={() => setIsActivityMenuOpen(!isActivityMenuOpen)}
+                className={`flex items-center justify-center w-[38px] h-[38px] rounded-xl border transition-all ${isActivityMenuOpen ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-400' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60'}`}
+                title="Recent Activity"
+              >
+                <div className="bg-indigo-500/20 p-1.5 rounded-lg border border-indigo-400/30">
+                  <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                </div>
+              </button>
+
+              {isActivityMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsActivityMenuOpen(false)} />
+                  <div className="absolute left-0 top-full mt-2 w-72 bg-[#0a1128] rounded-xl shadow-2xl border border-slate-800 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="p-3 border-b border-slate-800/50">
+                      <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Recent Activity</h3>
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto">
+                      {recentActivities.length > 0 ? (
+                        <div className="flex flex-col">
+                          {recentActivities.map((activity, idx) => (
+                            <div key={activity.id + idx} className="p-3 border-b border-slate-800/30 hover:bg-slate-800/50 transition-colors flex items-start gap-3">
+                              <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${activity.type === 'answer' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                                {activity.type === 'answer' ? <CheckCircle2 className="w-3 h-3" /> : <Wrench className="w-3 h-3" />}
+                              </div>
+                              <div className="flex flex-col min-w-0 text-left">
+                                <span className="text-xs font-medium text-slate-200 truncate">{activity.title}</span>
+                                <span className="text-[10px] text-slate-400 truncate">{activity.subtitle}</span>
+                                <span className="text-[9px] text-slate-500 mt-1">{new Date(activity.timestamp).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center text-xs text-slate-500">
+                          No recent activity
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           
           <div className="flex-1 max-w-xl mx-4 flex justify-center">
@@ -263,60 +403,74 @@ export default function App() {
             />
           </div>
 
-          <div className="flex items-center gap-3 md:gap-4 shrink-0">
-            <button
-              onClick={async () => {
-                if (store.updateAppSettings) {
-                  const current = store.appSettings?.isMaintenanceMode ?? false;
-                  await store.updateAppSettings({ isMaintenanceMode: !current });
-                  toast.success(`Maintenance Mode ${!current ? 'Enabled' : 'Disabled'}`);
-                }
-              }}
-              className={`hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-xs font-medium border transition-colors ${
-                store.appSettings?.isMaintenanceMode 
-                  ? 'bg-amber-100 border-amber-300 text-amber-700 hover:bg-amber-200' 
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-              title="Toggle Maintenance Mode"
-            >
-              <Wrench className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => store.forceRefresh()}
-              disabled={store.isSyncing || !isOnline}
-              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
-              title="Force Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${store.isSyncing ? 'animate-spin' : ''}`} />
-            </button>
-            <div 
-              className={`hidden sm:flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium border ${!isOnline ? 'bg-red-50 text-red-600 border-red-200' : isSlowConnection ? 'bg-amber-100 text-amber-700 border-amber-300' : store.isSyncing ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'} md:bg-opacity-100 bg-opacity-20`}
-              title={!isOnline ? "Offline" : isSlowConnection ? "Slow Connection" : store.isSyncing ? "Saving..." : "Online & Synced"}
-            >
-              {!isOnline ? (
-                <CloudOff className="w-4 h-4" />
-              ) : isSlowConnection ? (
-                <Cloud className="w-4 h-4 animate-pulse text-amber-500" />
-              ) : store.isSyncing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Cloud className="w-4 h-4" />
+          <div className="flex items-center gap-3 md:gap-4 shrink-0 relative">
+            {/* Desktop Engaging Stats Area */}
+            <div className="hidden md:flex items-center gap-4 mr-2">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50 text-xs font-medium text-slate-300 shadow-inner backdrop-blur-sm">
+                <span className="relative flex h-2 w-2 mr-1">
+                  {isOnline ? (
+                    <>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                    </>
+                  ) : (
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-400"></span>
+                  )}
+                </span>
+                {!isOnline ? "Offline" : isSlowConnection ? "Slow Connection" : store.isSyncing ? "Saving..." : "System Live"}
+              </div>
+
+              <div className="h-6 w-px bg-slate-700/50 hidden lg:block"></div>
+              
+              <div className="hidden lg:flex items-center gap-3 relative">
+                <button 
+                  onClick={() => setIsWaModalOpen(true)}
+                  className="flex items-center justify-center w-[38px] h-[38px] rounded-xl border bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60 transition-all"
+                  title="WhatsApp Announce"
+                >
+                  <div className="bg-emerald-500/20 p-1.5 rounded-lg border border-emerald-400/30">
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                  </div>
+                </button>
+                <div className="flex items-center gap-2.5 bg-slate-800/40 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/50 shadow-sm transition-all hover:bg-slate-800/60 text-white">
+                  <div className="bg-blue-500/20 p-1.5 rounded-lg border border-blue-400/30">
+                    <Users className="w-3.5 h-3.5 text-blue-400" />
+                  </div>
+                  <div className="flex flex-col pr-1">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-none">Active Players</span>
+                    <span className="text-xs font-black text-white leading-none mt-1">{store.participants.length}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Profile Menu */}
+            <div className="md:hidden relative">
+              <button 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300 font-medium"
+              >
+                A
+              </button>
+              
+              {isMobileMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsMobileMenuOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-[#0a1128] rounded-xl shadow-2xl border border-slate-800 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="p-3 border-b border-slate-800/50 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-300 font-medium shrink-0">
+                        A
+                      </div>
+                      <div className="flex-1 text-left overflow-hidden">
+                        <div className="text-xs font-medium text-slate-300 truncate">System Manager</div>
+                        <div className="text-[10px] text-slate-500">Logged in</div>
+                      </div>
+                    </div>
+                    {adminMenuNode}
+                  </div>
+                </>
               )}
             </div>
-            <button 
-              onClick={() => setActiveTab('users')}
-              className={`flex items-center justify-center p-2 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-blue-500/20 text-blue-400 md:bg-indigo-50 md:text-indigo-700' : 'text-slate-400 hover:text-white hover:bg-slate-800 md:bg-slate-100 md:text-slate-700 md:hover:bg-slate-200'}`}
-              title="User Management"
-            >
-              <Users className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={handleLogout}
-              className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors rounded-lg"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
           </div>
         </header>
         
@@ -421,6 +575,13 @@ export default function App() {
           participant={selectedParticipant}
           questions={store.questions}
           answers={store.answers}
+        />
+
+        <WhatsAppGenerator 
+          isOpen={isWaModalOpen} 
+          onClose={() => setIsWaModalOpen(false)} 
+          questions={store.questions} 
+          participants={store.participants} 
         />
       </main>
     </div>

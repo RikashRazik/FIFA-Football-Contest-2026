@@ -7,9 +7,10 @@ interface SidebarProps {
   onLogout: () => void;
   activeCount?: number;
   evaluateCount?: number;
+  adminMenuContent?: React.ReactNode;
 }
 
-export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluateCount }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluateCount, adminMenuContent }: SidebarProps) {
   const [showLogout, setShowLogout] = useState(false);
 
   const navItems = [
@@ -58,37 +59,21 @@ export function Sidebar({ activeTab, onTabChange, onLogout, activeCount, evaluat
         <div className="relative mt-auto p-3 border-t border-slate-800/50">
           {showLogout && (
             <div className="absolute bottom-full left-3 right-3 mb-2 bg-[#0a1128] rounded-md shadow-xl border border-slate-800 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-              <button 
-                onClick={() => {
-                  onTabChange('users');
-                  setShowLogout(false);
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors border-b border-slate-800/50"
-              >
-                <Users className="w-3.5 h-3.5" />
-                User Management
-              </button>
-              <button 
-                onClick={onLogout}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-medium text-red-400/80 hover:text-red-400 hover:bg-slate-800/50 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                Sign Out
-              </button>
+              {adminMenuContent}
             </div>
           )}
           <div 
-            className="p-3 rounded-md bg-slate-900/50 border border-slate-800/50 cursor-pointer hover:bg-slate-800 transition-colors flex items-center gap-3 w-full"
+             className="p-3 rounded-md bg-slate-900/50 border border-slate-800/50 cursor-pointer hover:bg-slate-800 transition-colors flex items-center gap-3 w-full"
             onClick={() => setShowLogout(!showLogout)}
           >
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-300 font-medium">
+            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-300 font-medium shrink-0">
               A
             </div>
             <div className="flex-1 text-left overflow-hidden">
               <div className="text-xs font-medium text-slate-300 truncate">System Manager</div>
               <div className="text-[10px] text-slate-500">Logged in</div>
             </div>
-            <ChevronUp className={`w-4 h-4 text-slate-500 transition-transform ${showLogout ? 'rotate-180' : ''}`} />
+            <ChevronUp className={`w-4 h-4 text-slate-500 transition-transform shrink-0 ${showLogout ? 'rotate-180' : ''}`} />
           </div>
         </div>
       </aside>
