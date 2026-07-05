@@ -2,13 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocsFromServer, getDocsFromCache } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Participant } from '../types';
-import { Database, Server, HardDrive, RefreshCw, AlertTriangle, Info } from 'lucide-react';
+import { Database, Server, HardDrive, RefreshCw, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAppStore } from '../hooks/useAppStore';
 
 export function Diagnostics() {
   const [serverData, setServerData] = useState<Participant[] | null>(null);
   const [cacheData, setCacheData] = useState<Participant[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+  const store = useAppStore();
+
+  const handleRecalculate = async () => {
+    if (recalculating) return;
+    setRecalculating(true);
+    try {
+      await store.recalculateAllScores();
+      await fetchData();
+    } catch (e: any) {
+      toast.error(`Recalculation error: ${e.message}`);
+    } finally {
+      setRecalculating(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -48,14 +64,24 @@ export function Diagnostics() {
           </h2>
           <p className="text-slate-500 mt-1">Compare local offline cache with live server data.</p>
         </div>
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold flex items-center gap-2 transition-all disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Run Diagnostic
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleRecalculate}
+            disabled={recalculating}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold flex items-center gap-2 transition-all disabled:opacity-50 shadow-sm"
+          >
+            <ShieldAlert className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
+            Recalculate Scores
+          </button>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold flex items-center gap-2 transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Run Diagnostic
+          </button>
+        </div>
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3 text-blue-800">

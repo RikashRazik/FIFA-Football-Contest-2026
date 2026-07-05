@@ -46,7 +46,8 @@
         "questionId": { "type": "string" },
         "participantId": { "type": "string" },
         "answer": { "type": "string" },
-        "timestamp": { "type": "string" }
+        "timestamp": { "type": "string" },
+        "pointsAwarded": { "type": "number", "description": "The score points officially awarded for this answer" }
       },
       "required": ["id", "questionId", "participantId", "answer", "timestamp"]
     }

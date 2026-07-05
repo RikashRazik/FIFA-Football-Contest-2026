@@ -10,10 +10,12 @@ interface EvaluateAnswersProps {
   answers: Answer[];
   updateParticipantScore: (id: string, category: 'dailyPoints' | 'bonusPoints' | 'bumperPoints', delta: number, dayIndex?: number) => void;
   updateQuestion: (id: string, updatedFields: Partial<Omit<Question, 'id'>>) => void;
-  addAnswer: (questionId: string, participantId: string, answer: string) => void;
+  addAnswer: (questionId: string, participantId: string, answer: string) => Promise<void>;
+  updateAnswerPoints: (updates: { id: string, pointsAwarded: number }[]) => Promise<void>;
+  recalculateAllScores: () => Promise<void>;
 }
 
-export function EvaluateAnswers({ questions, participants, answers, updateParticipantScore, updateQuestion, addAnswer }: EvaluateAnswersProps) {
+export function EvaluateAnswers({ questions, participants, answers, updateParticipantScore, updateQuestion, addAnswer, updateAnswerPoints, recalculateAllScores }: EvaluateAnswersProps) {
   const evaluableQuestions = questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !q.isEvaluated && isQuestionTimedOut(q));
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -160,39 +162,45 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     setIsUpdating(true);
     
     try {
-      // Map question type to points category
-      const categoryMap: Record<string, 'dailyPoints' | 'bonusPoints' | 'bumperPoints'> = {
-        'daily': 'dailyPoints',
-        'bonus': 'bonusPoints',
-        'bumper': 'bumperPoints',
-        'special': 'bonusPoints',
-        'multiple_choice': 'bonusPoints'
-      };
-      
-      const category = categoryMap[selectedQuestion.type] || 'dailyPoints';
-      
-      const getDayIndex = (dateString: string) => {
-        const start = new Date('2026-06-11T00:00:00Z');
-        const target = new Date(dateString + 'T00:00:00Z');
-        return Math.floor((target.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      };
-      const dayIdx = getDayIndex(selectedQuestion.date);
+      const answerPointsUpdates: { id: string, pointsAwarded: number }[] = [];
       
       if (evaluationMode === 'auto') {
         if (isMC) {
-          for (const [pId, score] of Object.entries(multipleChoiceScores)) {
-            await updateParticipantScore(pId, category, score, dayIdx);
-          }
+          // Track points awarded for each user answer
+          participants.forEach(p => {
+            const pAnswer = answers.find(a => a.questionId === selectedQuestion.id && a.participantId === p.id);
+            if (pAnswer) {
+              const pChoices = pAnswer.answer.split(' | ');
+              let score = 0;
+              pChoices.forEach(choice => {
+                if (selectedMultipleAnswers.includes(choice)) {
+                  score += 1;
+                }
+              });
+              answerPointsUpdates.push({ id: pAnswer.id, pointsAwarded: score });
+            }
+          });
+          
+          await updateAnswerPoints(answerPointsUpdates);
           await updateQuestion(selectedQuestion.id, { 
             status: 'past', 
             isEvaluated: true,
             correctAnswer: selectedMultipleAnswers.join(' | ')
           });
         } else {
-          // Update score for each matched participant
-          for (const p of matchedParticipants) {
-            await updateParticipantScore(p.id, category, selectedQuestion.points, dayIdx);
-          }
+          // Auto single choice: award question points to matching answers, 0 to others
+          participants.forEach(p => {
+            const pAnswer = answers.find(a => a.questionId === selectedQuestion.id && a.participantId === p.id);
+            if (pAnswer) {
+              const matches = pAnswer.answer === selectedAnswer;
+              answerPointsUpdates.push({ 
+                id: pAnswer.id, 
+                pointsAwarded: matches ? selectedQuestion.points : 0 
+              });
+            }
+          });
+          
+          await updateAnswerPoints(answerPointsUpdates);
           await updateQuestion(selectedQuestion.id, { 
             status: 'past', 
             isEvaluated: true,
@@ -200,12 +208,29 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
           });
         }
       } else {
-        // Manual mode
-        for (const [pId, pts] of Object.entries(participantPoints)) {
-          if (Number(pts) > 0) {
-            await updateParticipantScore(pId, category, Number(pts), dayIdx);
+        // Manual points mode
+        for (const p of participants) {
+          const pts = participantPoints[p.id] || 0;
+          let pAnswer = answers.find(a => a.questionId === selectedQuestion.id && a.participantId === p.id);
+          
+          if (!pAnswer && pts > 0) {
+            // Auto-create empty answer to house manual points dynamically
+            await addAnswer(selectedQuestion.id, p.id, '');
+            pAnswer = {
+              id: `${p.id}_${selectedQuestion.id}`,
+              questionId: selectedQuestion.id,
+              participantId: p.id,
+              answer: '',
+              timestamp: new Date().toISOString()
+            };
+          }
+          
+          if (pAnswer) {
+            answerPointsUpdates.push({ id: pAnswer.id, pointsAwarded: Number(pts) });
           }
         }
+        
+        await updateAnswerPoints(answerPointsUpdates);
         const updateData: any = { 
           status: 'past', 
           isEvaluated: true
@@ -215,6 +240,9 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
         }
         await updateQuestion(selectedQuestion.id, updateData);
       }
+      
+      // Perform full safe state recalculation from scratch
+      await recalculateAllScores();
       
       // Reset state
       setSelectedQuestion(null);
@@ -263,11 +291,23 @@ export function EvaluateAnswers({ questions, participants, answers, updatePartic
     setIsUpdating(true);
     
     try {
+      // Set points awarded to 0 for all user answers
+      const answerPointsUpdates: { id: string, pointsAwarded: number }[] = [];
+      participants.forEach(p => {
+        const pAnswer = answers.find(a => a.questionId === selectedQuestion.id && a.participantId === p.id);
+        if (pAnswer) {
+          answerPointsUpdates.push({ id: pAnswer.id, pointsAwarded: 0 });
+        }
+      });
+      
+      await updateAnswerPoints(answerPointsUpdates);
       await updateQuestion(selectedQuestion.id, { 
         status: 'past', 
         isEvaluated: true,
         correctAnswer: answerToSave
       });
+      
+      await recalculateAllScores();
       
       // Reset state
       setSelectedQuestion(null);

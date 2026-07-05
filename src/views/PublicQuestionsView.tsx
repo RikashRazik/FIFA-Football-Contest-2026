@@ -79,6 +79,7 @@ export function PublicQuestionsView({
   const [uniqueId, setUniqueId] = useState('');
   const [error, setError] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   
@@ -520,7 +521,7 @@ export function PublicQuestionsView({
               currentQuestionIndex === questions.length - 1 && (
                 <div className="flex flex-col items-end w-full">
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       setError('');
                       
                       const activeQs = questions.filter(q => !isQuestionTimedOut(q));
@@ -543,31 +544,43 @@ export function PublicQuestionsView({
                         return;
                       }
                       
-                      // Submit answers
-                      Object.entries(selectedOptions).forEach(([qId, optValue]) => {
-                        const question = questions.find(q => q.id === qId);
-                        if (question && isQuestionTimedOut(question)) return;
-                        
-                        if (question && loggedInParticipant) {
-                          if (question.isManualInput) {
-                            const valString = Array.isArray(optValue) ? optValue.filter(Boolean).join(' | ') : String(optValue);
-                            addAnswer(qId, loggedInParticipant.id, valString);
-                          } else if ((question.type === 'multiple_choice' || question.isMultipleChoice) && question.options) {
-                            const indices = Array.isArray(optValue) ? optValue as number[] : [optValue as number];
-                            const valString = indices.map(idx => question.options![idx]).join(' | ');
-                            addAnswer(qId, loggedInParticipant.id, valString);
-                          } else if (question.options) {
-                            const optionIndex = optValue as number;
-                            addAnswer(qId, loggedInParticipant.id, question.options[optionIndex]);
+                      setIsSubmitting(true);
+                      try {
+                        const submitPromises: Promise<any>[] = [];
+                        // Submit answers
+                        Object.entries(selectedOptions).forEach(([qId, optValue]) => {
+                          const question = questions.find(q => q.id === qId);
+                          if (question && isQuestionTimedOut(question)) return;
+                          
+                          if (question && loggedInParticipant) {
+                            if (question.isManualInput) {
+                              const valString = Array.isArray(optValue) ? optValue.filter(Boolean).join(' | ') : String(optValue);
+                              submitPromises.push(Promise.resolve(addAnswer(qId, loggedInParticipant.id, valString)));
+                            } else if ((question.type === 'multiple_choice' || question.isMultipleChoice) && question.options) {
+                              const indices = Array.isArray(optValue) ? optValue as number[] : [optValue as number];
+                              const valString = indices.map(idx => question.options![idx]).join(' | ');
+                              submitPromises.push(Promise.resolve(addAnswer(qId, loggedInParticipant.id, valString)));
+                            } else if (question.options) {
+                              const optionIndex = optValue as number;
+                              submitPromises.push(Promise.resolve(addAnswer(qId, loggedInParticipant.id, question.options[optionIndex])));
+                            }
                           }
-                        }
-                      });
-                      setIsSubmitted(true);
-                      setShowSuccessModal(true);
+                        });
+                        
+                        await Promise.all(submitPromises);
+                        setIsSubmitted(true);
+                        setShowSuccessModal(true);
+                      } catch (err) {
+                        console.error('Submission error:', err);
+                        setError('Failed to submit answers. Please try again.');
+                      } finally {
+                        setIsSubmitting(false);
+                      }
                     }}
-                    className="px-12 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all whitespace-nowrap w-full md:w-auto"
+                    disabled={isSubmitting}
+                    className="px-12 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all whitespace-nowrap w-full md:w-auto disabled:opacity-70 disabled:cursor-wait"
                   >
-                    Submit All Answers
+                    {isSubmitting ? 'Submitting...' : 'Submit All Answers'}
                   </button>
                   {error && <p className="text-red-400 mt-2 text-sm font-medium w-full text-center md:text-right">{error}</p>}
                 </div>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Participant, Question, Answer, AppSettings } from '../types';
 import { db, auth } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, getDoc, updateDoc, runTransaction } from 'firebase/firestore';
+import { getTamperProofDate } from '../lib/timeSync';
 
 enum OperationType {
   CREATE = 'create',
@@ -362,20 +363,119 @@ export function useAppStore() {
       const existingAnswer = answers.find(a => a.questionId === questionId && a.participantId === participantId);
       
       if (existingAnswer) {
-        await updateDoc(doc(db, 'answers', existingAnswer.id), { answer, timestamp: new Date().toISOString() });
+        await updateDoc(doc(db, 'answers', existingAnswer.id), { answer, timestamp: getTamperProofDate().toISOString() });
       } else {
-        const id = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9);
+        // Enforce a deterministic, collision-proof ID at the database level to mathematically prevent duplicate records
+        const id = `${participantId}_${questionId}`;
         const newAnswer: Answer = {
           id,
           questionId,
           participantId,
           answer,
-          timestamp: new Date().toISOString()
+          timestamp: getTamperProofDate().toISOString()
         };
         await setDoc(doc(db, 'answers', id), newAnswer);
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'answers');
+    }
+  };
+
+  const updateAnswerPoints = async (updates: { id: string, pointsAwarded: number }[]) => {
+    try {
+      const batch = writeBatch(db);
+      updates.forEach(update => {
+        const docRef = doc(db, 'answers', update.id);
+        batch.update(docRef, { pointsAwarded: update.pointsAwarded });
+      });
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'answers');
+    }
+  };
+
+  const recalculateAllScores = async () => {
+    try {
+      const getDayIndex = (dateString: string) => {
+        const start = new Date('2026-06-11T00:00:00Z');
+        const target = new Date(dateString + 'T00:00:00Z');
+        return Math.floor((target.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      };
+
+      const categoryMap: Record<string, 'dailyPoints' | 'bonusPoints' | 'bumperPoints'> = {
+        'daily': 'dailyPoints',
+        'bonus': 'bonusPoints',
+        'bumper': 'bumperPoints',
+        'special': 'bonusPoints',
+        'multiple_choice': 'bonusPoints'
+      };
+
+      // Reset scores in memory for a clean sum
+      const scoreMap: Record<string, {
+        dailyScores: Record<number, number>;
+        bonusPoints: number;
+        bumperPoints: number;
+      }> = {};
+
+      participants.forEach(p => {
+        scoreMap[p.id] = {
+          dailyScores: {},
+          bonusPoints: 0,
+          bumperPoints: 0
+        };
+      });
+
+      // Sum pointsAwarded from all answers
+      answers.forEach(ans => {
+        const q = questions.find(question => question.id === ans.questionId);
+        if (!q) return;
+
+        const pts = ans.pointsAwarded ?? 0;
+        const category = categoryMap[q.type] || 'dailyPoints';
+        const dayIdx = getDayIndex(q.date);
+
+        const scoresObj = scoreMap[ans.participantId];
+        if (scoresObj) {
+          if (category === 'dailyPoints') {
+            scoresObj.dailyScores[dayIdx] = (scoresObj.dailyScores[dayIdx] || 0) + pts;
+          } else if (category === 'bonusPoints') {
+            scoresObj.bonusPoints += pts;
+          } else if (category === 'bumperPoints') {
+            scoresObj.bumperPoints += pts;
+          }
+        }
+      });
+
+      // Write updates to Firestore in a batch
+      const batch = writeBatch(db);
+      participants.forEach(p => {
+        const scores = scoreMap[p.id];
+        if (scores) {
+          const maxDayIdx = Object.keys(scores.dailyScores).length > 0 
+            ? Math.max(...Object.keys(scores.dailyScores).map(Number)) 
+            : -1;
+          
+          const dailyScoresArr: number[] = [];
+          for (let i = 0; i <= maxDayIdx; i++) {
+            dailyScoresArr.push(scores.dailyScores[i] || 0);
+          }
+
+          const dailyPoints = dailyScoresArr.reduce((sum, s) => sum + s, 0);
+
+          const docRef = doc(db, 'participants', p.id);
+          batch.update(docRef, {
+            dailyScores: dailyScoresArr,
+            dailyPoints: dailyPoints,
+            bonusPoints: scores.bonusPoints,
+            bumperPoints: scores.bumperPoints
+          });
+        }
+      });
+
+      await batch.commit();
+      toast.success('Successfully synchronized and recalculated all participant scores!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'recalculate');
     }
   };
 
@@ -483,6 +583,8 @@ export function useAppStore() {
     updateQuestion,
     deleteQuestion,
     addAnswer,
+    updateAnswerPoints,
+    recalculateAllScores,
     deleteParticipantAnswers
   };
 }

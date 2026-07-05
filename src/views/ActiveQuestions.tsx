@@ -279,8 +279,8 @@ export function ActiveQuestions({
       };
     }).filter(sub => sub.participant);
 
-    // Sort by timestamp (oldest first - first come first serve)
-    result.sort((a, b) => a.latestTimestamp.getTime() - b.latestTimestamp.getTime());
+    // Sort by timestamp (newest first - last submission shows first)
+    result.sort((a, b) => b.latestTimestamp.getTime() - a.latestTimestamp.getTime());
 
     return { targetQuestions: target, submissions: result };
   }, [activeQuestions, answers, participants, selectedSubmissionsGroup, groupedActiveQuestions]);
@@ -501,18 +501,20 @@ export function ActiveQuestions({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {submissions.map((sub, index) => (
-                      <tr key={sub.participantId} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3 px-6 text-center">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mx-auto shadow-sm ${
-                            index === 0 ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                            index === 1 ? 'bg-slate-100 text-slate-700 border border-slate-200' :
-                            index === 2 ? 'bg-orange-100 text-orange-700 border border-orange-200' :
-                            'bg-slate-50 text-slate-500 border border-slate-100'
-                          }`}>
-                            {index + 1}
-                          </div>
-                        </td>
+                    {submissions.map((sub, index) => {
+                      const displayRank = submissions.length - index;
+                      return (
+                        <tr key={sub.participantId} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-6 text-center">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mx-auto shadow-sm ${
+                              displayRank === 1 ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                              displayRank === 2 ? 'bg-slate-100 text-slate-700 border border-slate-200' :
+                              displayRank === 3 ? 'bg-orange-100 text-orange-700 border border-orange-200' :
+                              'bg-slate-50 text-slate-500 border border-slate-100'
+                            }`}>
+                              {displayRank}
+                            </div>
+                          </td>
                         <td className="py-3 px-6">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
@@ -577,7 +579,8 @@ export function ActiveQuestions({
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    );
+                  })}
                   </tbody>
                 </table>
               </div>

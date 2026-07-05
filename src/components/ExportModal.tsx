@@ -141,7 +141,7 @@ export function ExportModal({ isOpen, onClose, participants }: ExportModalProps)
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -151,10 +151,11 @@ export function ExportModal({ isOpen, onClose, participants }: ExportModalProps)
         />
         
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col"
+          initial={{ opacity: 0, y: '100%' }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: '100%' }}
+          transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+          className="relative w-full max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-none overflow-hidden"
         >
           <div className="flex items-center justify-between p-6 border-b border-slate-100">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -165,7 +166,7 @@ export function ExportModal({ isOpen, onClose, participants }: ExportModalProps)
             </button>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
             <div>
               <h3 className="text-sm font-semibold text-slate-700 mb-3">Select Fields to Export</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

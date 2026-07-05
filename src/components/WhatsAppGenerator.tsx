@@ -21,7 +21,7 @@ export function WhatsAppGenerator({ questions, participants, isOpen, onClose }: 
     if (activeQuestions.length === 0) return 'No active questions right now.';
 
     let text = '📢 *FIFA 2026 Admin - Active Questions* 📢\n\n';
-    const origin = window.location.origin;
+    const origin = 'https://ais-dev-nc43ixkcuf5lpjgjziks5x-524600942639.europe-west1.run.app';
     const pathname = window.location.pathname;
 
     activeQuestions.forEach((q, i) => {
@@ -57,8 +57,7 @@ export function WhatsAppGenerator({ questions, participants, isOpen, onClose }: 
       text += `${medal} ${i + 1}. ${p.name} - ${p.total} pts\n`;
     });
 
-    const origin = window.location.origin;
-    text += `\n👉 *View full leaderboard:* ${origin}/?view=leaderboard\n`;
+    text += `\n👉 *View full leaderboard:* https://ais-dev-nc43ixkcuf5lpjgjziks5x-524600942639.europe-west1.run.app/?view=leaderboard\n`;
 
     return text;
   };

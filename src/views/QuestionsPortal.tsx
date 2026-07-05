@@ -30,17 +30,18 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
   });
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [endTime, setEndTime] = useState('');
+  const [startTime, setStartTime] = useState('');
   const [options, setOptions] = useState<string[]>(['', '', '']);
   const [isManualInput, setIsManualInput] = useState(false);
   const [manualInputCount, setManualInputCount] = useState(1);
   const [manualInputPlaceholders, setManualInputPlaceholders] = useState<string[]>(['']);
   const [maxSelections, setMaxSelections] = useState(2);
-  const [isActivatedNow, setIsActivatedNow] = useState(false);
   const [isMultipleChoice, setIsMultipleChoice] = useState(false);
   const [columns, setColumns] = useState(2);
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
   const [isAddMultiple, setIsAddMultiple] = useState(false);
   const [tempQuestions, setTempQuestions] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatEndTime = (endTimeString: string) => {
     if (!endTimeString) return '';
@@ -79,7 +80,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     return formatted;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() && tempQuestions.length === 0) return;
     
@@ -95,9 +96,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
         type, 
         points: isMultipleChoice ? maxSelections : points, 
         date, 
-        status: isActivatedNow ? 'active' : getInitialQuestionStatus(date),
+        status: getInitialQuestionStatus(date),
         isManualInput,
-        isActivatedNow,
         isMultipleChoice,
         columns: isMultipleChoice ? columns : 2
       };
@@ -111,6 +111,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
         newQ.maxSelections = maxSelections;
       }
       if (!isManualInput && validOptions.length > 0) newQ.options = validOptions;
+      if (startTime) newQ.startTime = startTime;
       if (endTime) newQ.endTime = endTime;
       
       qsToSave.push(newQ);
@@ -122,36 +123,44 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
         q.groupId = groupId;
         q.createdAt = Date.now() + i;
         q.date = date;
+        if (startTime) q.startTime = startTime;
         if (endTime) q.endTime = endTime;
-        q.isActivatedNow = isActivatedNow;
-        q.status = isActivatedNow ? 'active' : getInitialQuestionStatus(date);
+        q.status = getInitialQuestionStatus(date);
       });
     } else if (qsToSave.length === 1) {
       qsToSave[0].createdAt = Date.now();
       qsToSave[0].date = date;
+      if (startTime) qsToSave[0].startTime = startTime;
       if (endTime) qsToSave[0].endTime = endTime;
-      qsToSave[0].isActivatedNow = isActivatedNow;
-      qsToSave[0].status = isActivatedNow ? 'active' : getInitialQuestionStatus(date);
+      qsToSave[0].status = getInitialQuestionStatus(date);
     }
 
-    qsToSave.forEach(q => addQuestion(q));
-    
-    setText('');
-    setTitle('');
-    setOptions(['', '', '']);
-    setEndTime('');
-    setIsManualInput(false);
-    setManualInputPlaceholders(['']);
-    setIsMultipleChoice(false);
-    setColumns(2);
-    setType('daily');
-    setPoints(1);
-    setManualInputCount(1);
-    setMaxSelections(2);
-    setIsActivatedNow(false);
-    setIsAddMultiple(false);
-    setTempQuestions([]);
-    setIsAddModalOpen(false);
+    try {
+      setIsSubmitting(true);
+      await Promise.all(qsToSave.map(q => addQuestion(q)));
+      
+      setText('');
+      setTitle('');
+      setOptions(['', '', '']);
+      setStartTime('');
+      setEndTime('');
+      setIsManualInput(false);
+      setManualInputPlaceholders(['']);
+      setIsMultipleChoice(false);
+      setColumns(2);
+      setType('daily');
+      setPoints(1);
+      setManualInputCount(1);
+      setMaxSelections(2);
+      setIsAddMultiple(false);
+      setTempQuestions([]);
+      setIsAddModalOpen(false);
+      toast.success(qsToSave.length > 1 ? `Added ${qsToSave.length} questions` : 'Added question');
+    } catch (err) {
+      toast.error('Failed to save');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddToList = () => {
@@ -166,9 +175,8 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       type, 
       points: isMultipleChoice ? maxSelections : points, 
       date, 
-      status: isActivatedNow ? 'active' : getInitialQuestionStatus(date),
+      status: getInitialQuestionStatus(date),
       isManualInput,
-      isActivatedNow,
       isMultipleChoice,
       columns: isMultipleChoice ? columns : 2
     };
@@ -182,6 +190,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       newQ.maxSelections = maxSelections;
     }
     if (!isManualInput && validOptions.length > 0) newQ.options = validOptions;
+    if (startTime) newQ.startTime = startTime;
     if (endTime) newQ.endTime = endTime;
     
     setTempQuestions([...tempQuestions, newQ]);
@@ -262,11 +271,11 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
     const [editTitle, setEditTitle] = useState(q.title || '');
     const [editOptions, setEditOptions] = useState<string[]>(q.options || []);
     const [editEndTime, setEditEndTime] = useState(q.endTime || '');
+    const [editStartTime, setEditStartTime] = useState(q.startTime || '');
     const [editCorrectAnswer, setEditCorrectAnswer] = useState(q.correctAnswer || '');
     const [editManualInputCount, setEditManualInputCount] = useState(q.manualInputCount || 1);
     const [editManualInputPlaceholders, setEditManualInputPlaceholders] = useState<string[]>(q.manualInputPlaceholders || Array(q.manualInputCount || 1).fill(''));
     const [editMaxSelections, setEditMaxSelections] = useState(q.maxSelections || 2);
-    const [editIsActivatedNow, setEditIsActivatedNow] = useState(q.isActivatedNow || false);
     const [editType, setEditType] = useState<QuestionType>(q.type);
 
     const handleSave = () => {
@@ -299,13 +308,14 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       
       if (editEndTime) {
         updatedFields.endTime = editEndTime;
+      } else {
+        updatedFields.endTime = '';
       }
 
-      if (editIsActivatedNow !== q.isActivatedNow) {
-        updatedFields.isActivatedNow = editIsActivatedNow;
-        if (editIsActivatedNow) {
-          updatedFields.status = 'active';
-        }
+      if (editStartTime) {
+        updatedFields.startTime = editStartTime;
+      } else {
+        updatedFields.startTime = '';
       }
 
       if (editCorrectAnswer) {
@@ -357,22 +367,33 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
               />
             </div>
             
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-slate-700 w-32 shrink-0">End Date & Time:</label>
-              <input
-                type="datetime-local"
-                value={editEndTime}
-                onChange={(e) => setEditEndTime(e.target.value)}
-                className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all w-full max-w-xs"
-              />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 flex-1">
+                <label className="text-xs sm:text-sm font-semibold text-slate-700 sm:w-32 sm:shrink-0">Start Date & Time:</label>
+                <input
+                  type="datetime-local"
+                  value={editStartTime}
+                  onChange={(e) => setEditStartTime(e.target.value)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all w-full max-w-xs text-sm bg-white"
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 flex-1">
+                <label className="text-xs sm:text-sm font-semibold text-slate-700 sm:w-32 sm:shrink-0">End Date & Time:</label>
+                <input
+                  type="datetime-local"
+                  value={editEndTime}
+                  onChange={(e) => setEditEndTime(e.target.value)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all w-full max-w-xs text-sm bg-white"
+                />
+              </div>
             </div>
             
-            <div className="flex items-center gap-3 mt-2">
-              <label className="text-sm font-medium text-slate-700 w-32 shrink-0">Question Type:</label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-2">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 sm:w-32 sm:shrink-0">Question Type:</label>
               <select
                 value={editType}
                 onChange={(e) => setEditType(e.target.value as QuestionType)}
-                className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all w-full max-w-xs text-sm"
+                className="px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all w-full max-w-xs text-sm bg-white"
               >
                 <option value="daily">Daily</option>
                 <option value="bonus">Bonus</option>
@@ -381,23 +402,11 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                 <option value="multiple_choice">Multiple Choice</option>
               </select>
             </div>
-            
-            <div className="flex items-center gap-3 mt-2">
-              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={editIsActivatedNow}
-                  onChange={(e) => setEditIsActivatedNow(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                />
-                Activate Now
-              </label>
-            </div>
 
             {q.isManualInput && (
               <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Boxes Count:</label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700 sm:w-32 sm:shrink-0">Boxes Count:</label>
                   <input
                     type="number"
                     min="1"
@@ -412,42 +421,44 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
                         return arr.slice(0, val);
                       });
                     }}
-                    className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                    className="w-full max-w-[120px] px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm bg-white"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Custom Box Text (Optional Placeholder)</label>
-                  {Array.from({ length: editManualInputCount }).map((_, idx) => (
-                    <input
-                      key={idx}
-                      type="text"
-                      placeholder={`Placeholder for Box ${idx + 1}`}
-                      value={editManualInputPlaceholders[idx] || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEditManualInputPlaceholders(prev => {
-                          const newArr = [...prev];
-                          newArr[idx] = val;
-                          return newArr;
-                        });
-                      }}
-                      className="w-full max-w-xs px-3 py-1.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
-                    />
-                  ))}
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700">Custom Box Text (Optional Placeholder)</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {Array.from({ length: editManualInputCount }).map((_, idx) => (
+                      <input
+                        key={idx}
+                        type="text"
+                        placeholder={`Placeholder for Box ${idx + 1}`}
+                        value={editManualInputPlaceholders[idx] || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditManualInputPlaceholders(prev => {
+                            const newArr = [...prev];
+                            newArr[idx] = val;
+                            return newArr;
+                          });
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm bg-white"
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
             {(q.type === 'multiple_choice' || q.isMultipleChoice) && (
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-slate-700 w-24 shrink-0">Max Selections:</label>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                <label className="text-xs sm:text-sm font-semibold text-slate-700 sm:w-32 sm:shrink-0">Max Selections:</label>
                 <input
                   type="number"
                   min="1"
                   max="10"
                   value={editMaxSelections}
                   onChange={(e) => setEditMaxSelections(parseInt(e.target.value) || 1)}
-                  className="w-24 px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                  className="w-full max-w-[120px] px-4 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm bg-white"
                 />
               </div>
             )}
@@ -585,6 +596,16 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
             <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
               <Calendar className="w-3 h-3" /> {q.date} (Day {getDayNumber(q.date)})
             </span>
+            {q.startTime && (
+              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                <span className="font-extrabold uppercase text-[8px] tracking-wider text-emerald-500">Start:</span> {formatEndTime(q.startTime)}
+              </span>
+            )}
+            {q.endTime && (
+              <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                <span className="font-extrabold uppercase text-[8px] tracking-wider text-rose-500">End:</span> {formatEndTime(q.endTime)}
+              </span>
+            )}
             <span className="text-[11px] font-bold text-slate-700 ml-1">{q.points} pts</span>
           </div>
           {q.title && (
@@ -648,18 +669,7 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
               <RotateCcw className="w-4 h-4" />
             </button>
           )}
-          {getDynamicQuestionStatus(q) === 'upcoming' && !q.isActivatedNow && (
-            <button 
-              onClick={() => {
-                updateQuestion(q.id, { isActivatedNow: true, status: 'active' });
-                toast.success('Question activated immediately!');
-              }}
-              className="p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-md transition-colors"
-              title="Activate Now"
-            >
-              <AlertCircle className="w-4 h-4" />
-            </button>
-          )}
+
           <button 
             onClick={() => setShareModalConfig({
               isOpen: true,
@@ -779,343 +789,352 @@ export function QuestionsPortal({ questions, participants, answers, addQuestion,
       </div>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-[100]">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-3 sm:p-5 border-b border-slate-100 shrink-0">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <h3 className="text-base sm:text-xl font-bold text-slate-800">Add New Question</h3>
-                <div className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:py-1 rounded-md flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  Day {getDayNumber(date)}
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-[100]">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-xl h-[92vh] sm:h-auto sm:max-h-[90vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-3.5 sm:p-6 border-b border-slate-100 shrink-0 bg-white">
+              <div className="flex items-center gap-2.5">
+                <div className="hidden xs:flex w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 items-center justify-center text-indigo-600 shrink-0">
+                  <Plus className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-xl font-bold text-slate-800">Add New Question</h3>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 mt-0.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Day {getDayNumber(date)}
+                  </div>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors p-1"
-              >
-                <X className="w-5 h-5 sm:w-6 sm:h-6" />
-              </button>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMultiple(!isAddMultiple)}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[10px] sm:text-xs font-bold transition-all shadow-sm ${
+                    isAddMultiple 
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-indigo-100' 
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="xs:inline hidden">Batch Mode</span>
+                  <span className="xs:hidden inline">Batch</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isAddMultiple ? 'bg-white animate-pulse' : 'bg-slate-300'}`}></span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-3 sm:p-5 overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-                <div className="col-span-2 md:col-span-4">
-                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">Question Category</label>
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    {['daily', 'bonus', 'bumper'].map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => {
-                          setType(cat as any);
-                          setPoints(cat === 'daily' ? 1 : cat === 'bonus' ? 3 : 5);
-                        }}
-                        className={`py-2 px-3 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold border-2 transition-all capitalize ${
-                          type === cat
-                            ? 'border-indigo-500 bg-indigo-50/50 text-indigo-700 shadow-sm'
-                            : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar space-y-6">
+                
+                {/* Basic Info */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-800 mb-1.5">Question Text</label>
+                    <textarea 
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none h-24 text-sm shadow-sm"
+                      placeholder="E.g., Which stadium will host the opening match?"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-800 mb-1.5">Title <span className="text-slate-400 font-normal">(Optional)</span></label>
+                      <input 
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm shadow-sm"
+                        placeholder="E.g., Match 1 Stadium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-800 mb-1.5">Category</label>
+                      <div className="flex bg-slate-100 p-1 rounded-xl">
+                        {['daily', 'bonus', 'bumper'].map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => {
+                              setType(cat as any);
+                              setPoints(cat === 'daily' ? 1 : cat === 'bonus' ? 3 : 5);
+                            }}
+                            className={`flex-1 py-1.5 text-xs sm:text-sm font-bold rounded-lg capitalize transition-all ${
+                              type === cat
+                                ? 'bg-white shadow-sm text-indigo-700'
+                                : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="col-span-2 md:col-span-4">
-                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Question Title (Optional)</label>
-                  <input 
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm mb-3 bg-white font-semibold"
-                    placeholder="E.g., Match 1 Stadium, Group B prediction, etc."
-                  />
-                </div>
+                <div className="w-full h-px bg-slate-100"></div>
 
-                <div className="col-span-2 md:col-span-4">
-                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1 sm:mb-1.5">Question Text</label>
-                  <textarea 
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none h-16 sm:h-20 mb-3 text-sm"
-                    placeholder="E.g., Which stadium will host the opening match?"
-                  />
-                </div>
-
-                <div className="col-span-2 md:col-span-4 grid grid-cols-2 gap-4 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={isMultipleChoice}
-                      onChange={(e) => {
-                        setIsMultipleChoice(e.target.checked);
-                        if (e.target.checked) {
-                          setIsManualInput(false);
-                          setOptions(['', '', '']);
-                        }
-                      }}
-                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                    />
-                    <div>
-                      <span className="block text-sm font-bold text-slate-800">Multiple Choice</span>
-                      <span className="block text-xs text-slate-500">Allow multiple selections</span>
+                {/* Question Type Selection */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider shrink-0">Answer Format:</span>
+                    <div className="flex bg-slate-200 p-0.5 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setIsManualInput(false)}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                          !isManualInput
+                            ? 'bg-white shadow-sm text-indigo-700 font-extrabold'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        Multiple Choice
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsManualInput(true); setIsMultipleChoice(false); }}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                          isManualInput
+                            ? 'bg-white shadow-sm text-indigo-700 font-extrabold'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        Manual Input
+                      </button>
                     </div>
-                  </label>
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={isManualInput}
-                      onChange={(e) => {
-                        setIsManualInput(e.target.checked);
-                        if (e.target.checked) {
-                          setIsMultipleChoice(false);
-                        }
-                      }}
-                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                    />
-                    <div>
-                      <span className="block text-sm font-bold text-slate-800">Manual Input</span>
-                      <span className="block text-xs text-slate-500">Freeform text entry</span>
-                    </div>
-                  </label>
+                  </div>
+                  
+                  {!isManualInput && (
+                    <label className="flex items-center gap-1.5 cursor-pointer group select-none bg-white hover:bg-indigo-50 border border-slate-200 rounded-lg px-2.5 py-1 shadow-sm transition-colors self-start sm:self-auto">
+                      <input 
+                        type="checkbox" 
+                        checked={isMultipleChoice} 
+                        onChange={(e) => setIsMultipleChoice(e.target.checked)} 
+                        className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" 
+                      />
+                      <span className="text-xs font-semibold text-slate-600 group-hover:text-indigo-700 transition-colors">Multi-select</span>
+                    </label>
+                  )}
                 </div>
 
-                {isMultipleChoice && (
-                  <div className="col-span-2 md:col-span-4 space-y-4 border-l-4 border-indigo-500 pl-4 py-1 animate-in slide-in-from-left-2 duration-200">
-                    <div className="grid grid-cols-2 gap-4">
+                {/* Dynamic Configuration based on Type */}
+                <div className="bg-slate-50 rounded-2xl p-4 sm:p-5 border border-slate-100">
+                  {!isManualInput ? (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-semibold text-slate-800">Answer Options</label>
+                        <span className="text-xs font-medium text-slate-500">{options.length} options</span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {options.map((opt, i) => (
+                          <div key={i} className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all shadow-sm">
+                            <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
+                              {String.fromCharCode(65 + i)}
+                            </div>
+                            <input 
+                              type="text" 
+                              value={opt} 
+                              onChange={(e) => handleOptionChange(i, e.target.value)} 
+                              placeholder={`Option ${String.fromCharCode(65 + i)}`} 
+                              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-1 px-1 outline-none font-medium text-slate-700" 
+                            />
+                            <button 
+                              type="button"
+                              onClick={() => removeOptionField(i)} 
+                              disabled={options.length <= 2}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={addOptionField} 
+                        className="text-sm font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1.5 py-2 px-3 rounded-lg hover:bg-indigo-50 transition-colors w-full justify-center border border-dashed border-indigo-200"
+                      >
+                        <Plus className="w-4 h-4" /> Add Another Option
+                      </button>
+
+                      {isMultipleChoice && (
+                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200/60 mt-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Max Selections Allowed</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max={options.length}
+                              value={maxSelections}
+                              onChange={(e) => setMaxSelections(parseInt(e.target.value) || 1)}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm shadow-sm bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Display Grid Columns</label>
+                            <select
+                              value={columns}
+                              onChange={(e) => setColumns(parseInt(e.target.value) || 2)}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white text-sm shadow-sm"
+                            >
+                              <option value={1}>1 Column</option>
+                              <option value={2}>2 Columns</option>
+                              <option value={3}>3 Columns</option>
+                              <option value={4}>4 Columns</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
                       <div>
-                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Max Selections</label>
+                        <label className="block text-sm font-semibold text-slate-800 mb-1.5">Number of Input Fields</label>
                         <input
                           type="number"
                           min="1"
                           max="10"
-                          value={maxSelections}
-                          onChange={(e) => setMaxSelections(parseInt(e.target.value) || 1)}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                          value={manualInputCount}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 1;
+                            setManualInputCount(val);
+                            setManualInputPlaceholders(prev => {
+                              const newArr = [...prev];
+                              while(newArr.length < val) newArr.push('');
+                              return newArr.slice(0, val);
+                            });
+                          }}
+                          className="w-full max-w-[200px] px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm shadow-sm bg-white"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Grid Columns</label>
-                        <select
-                          value={columns}
-                          onChange={(e) => setColumns(parseInt(e.target.value) || 2)}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white text-sm"
-                        >
-                          <option value={1}>1 Column</option>
-                          <option value={2}>2 Columns</option>
-                          <option value={3}>3 Columns</option>
-                          <option value={4}>4 Columns</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-xs sm:text-sm font-medium text-slate-700">Bulk Options (one per line)</label>
-                      <textarea
-                        value={options.join('\n')}
-                        onChange={(e) => setOptions(e.target.value.split('\n'))}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-y min-h-[100px] text-sm font-sans"
-                        placeholder="Option 1&#10;Option 2&#10;Option 3..."
-                      />
-                    </div>
-                    {options.filter(o => o.trim()).length > 0 && (
-                      <div className="space-y-2">
-                        <label className="block text-xs sm:text-sm font-medium text-slate-700">
-                          Parsed Options Preview ({options.filter(o => o.trim()).length})
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl max-h-40 overflow-y-auto">
-                          {options.filter(o => o.trim()).map((opt, i) => (
-                            <div key={i} className="flex items-center gap-2 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
-                              <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0">
-                                {i + 1}
-                              </span>
-                              <span className="truncate" title={opt}>{opt}</span>
-                            </div>
-                          ))}
+                      {manualInputCount > 0 && (
+                        <div className="space-y-3 pt-2">
+                          <label className="block text-sm font-semibold text-slate-800 mb-1.5">Custom Box Placeholders (Optional)</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {Array.from({ length: manualInputCount }).map((_, idx) => (
+                              <input
+                                key={idx}
+                                type="text"
+                                placeholder={`Placeholder for Box ${idx + 1}`}
+                                value={manualInputPlaceholders[idx] || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setManualInputPlaceholders(prev => {
+                                    const newArr = [...prev];
+                                    newArr[idx] = val;
+                                    return newArr;
+                                  });
+                                }}
+                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm shadow-sm bg-white"
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {isManualInput && (
-                  <div className="col-span-2 md:col-span-4 space-y-4 border-l-4 border-indigo-500 pl-4 py-1 animate-in slide-in-from-left-2 duration-200">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Boxes Count</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="10"
-                        value={manualInputCount}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 1;
-                          setManualInputCount(val);
-                          setManualInputPlaceholders(prev => {
-                            const newArr = [...prev];
-                            while(newArr.length < val) newArr.push('');
-                            return newArr.slice(0, val);
-                          });
-                        }}
-                        className="w-full max-w-xs px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
-                      />
+                      )}
                     </div>
-                    {manualInputCount > 0 && (
-                      <div className="space-y-2">
-                         <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Custom Box Text (Optional Placeholder)</label>
-                         {Array.from({ length: manualInputCount }).map((_, idx) => (
-                           <input
-                             key={idx}
-                             type="text"
-                             placeholder={`Placeholder for Box ${idx + 1}`}
-                             value={manualInputPlaceholders[idx] || ''}
-                             onChange={(e) => {
-                               const val = e.target.value;
-                               setManualInputPlaceholders(prev => {
-                                 const newArr = [...prev];
-                                 newArr[idx] = val;
-                                 return newArr;
-                               });
-                             }}
-                             className="w-full max-w-xs px-3 py-1.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
-                           />
-                         ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {!isMultipleChoice && !isManualInput && (
-                  <div className="col-span-2 md:col-span-4 space-y-2.5">
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700">Answer Options</label>
-                    {options.map((opt, index) => (
-                      <div key={index} className="flex items-center gap-2 animate-in fade-in duration-150">
-                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold shrink-0">
-                          {String.fromCharCode(65 + index)}
-                        </span>
-                        <input 
-                          type="text"
-                          value={opt}
-                          onChange={(e) => handleOptionChange(index, e.target.value)}
-                          placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => removeOptionField(index)}
-                          disabled={options.length <= 2}
-                          className="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={addOptionField}
-                      className="text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add Option
-                    </button>
-                  </div>
-                )}
-
-                <div className="col-span-2 md:col-span-4 grid grid-cols-3 gap-3 pt-3">
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Points</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="col-span-1">
+                    <label className="block text-xs font-semibold text-slate-800 mb-1.5">Points</label>
                     <input 
                       type="number" 
                       min="1"
                       value={isMultipleChoice ? maxSelections : points}
                       onChange={(e) => setPoints(Number(e.target.value))}
                       disabled={isMultipleChoice}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm shadow-sm disabled:bg-slate-50 disabled:text-slate-500"
                     />
+                    {isMultipleChoice && <p className="text-[10px] text-slate-500 mt-1">1 pt per selection</p>}
                   </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Date</label>
+                  <div className="col-span-1">
+                    <label className="block text-xs font-semibold text-slate-800 mb-1.5">Date</label>
                     <input 
                       type="date" 
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm shadow-sm"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">End Date & Time</label>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-xs font-semibold text-slate-800 mb-1.5">Start Date & Time</label>
+                    <input 
+                      type="datetime-local" 
+                      step="1"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm shadow-sm"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-xs font-semibold text-slate-800 mb-1.5">End Date & Time</label>
                     <input 
                       type="datetime-local" 
                       step="1"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm shadow-sm"
                     />
                   </div>
                 </div>
-              </div>
-              
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={isActivatedNow}
-                      onChange={(e) => setIsActivatedNow(e.target.checked)}
-                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                    />
-                    Activate Now
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={isAddMultiple}
-                      onChange={(e) => setIsAddMultiple(e.target.checked)}
-                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                    />
-                    Add multiple questions
-                  </label>
-                </div>
+
+                <div className="w-full h-px bg-slate-100"></div>
+                
+                {tempQuestions.length > 0 && (
+                  <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                    <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider">Batch Preview ({tempQuestions.length})</h4>
+                    <div className="space-y-1.5">
+                      {tempQuestions.map((q, idx) => (
+                        <div key={idx} className="text-sm bg-white p-2.5 rounded-lg border border-indigo-100 shadow-sm flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="truncate font-medium text-slate-700">{q.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {tempQuestions.length > 0 && (
-                <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 max-h-40 overflow-y-auto">
-                  <h4 className="text-xs font-bold text-slate-700">Questions added so far ({tempQuestions.length}):</h4>
-                  {tempQuestions.map((q, idx) => (
-                    <div key={idx} className="text-sm bg-white p-2 rounded border border-slate-100 shadow-sm flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0">
-                        {idx + 1}
-                      </span>
-                      <span className="truncate">{q.text}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex flex-wrap justify-end gap-2 sm:gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-1.5 sm:px-5 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900 transition-all text-xs sm:text-sm"
-                >
-                  Cancel
-                </button>
-                {isAddMultiple && (
+              {/* Footer */}
+              <div className="p-4 sm:p-6 border-t border-slate-100 bg-slate-50 shrink-0">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 justify-end">
                   <button 
                     type="button"
-                    onClick={handleAddToList}
-                    disabled={!text.trim()}
-                    className="px-4 py-1.5 sm:px-5 sm:py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg sm:rounded-xl transition-colors shadow-sm flex items-center gap-2 text-xs sm:text-sm disabled:opacity-50"
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-white hover:border-slate-300 transition-all text-sm w-full sm:w-auto"
                   >
-                    <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Next Question
+                    Cancel
                   </button>
-                )}
-                <button 
-                  type="submit" 
-                  className="px-4 py-1.5 sm:px-5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg sm:rounded-xl transition-colors shadow-sm flex items-center gap-2 text-xs sm:text-sm"
-                >
-                  <Save className="w-3 h-3 sm:w-4 sm:h-4" /> {isAddMultiple && tempQuestions.length > 0 ? `Save All Questions (${text.trim() ? tempQuestions.length + 1 : tempQuestions.length})` : 'Save Question'}
-                </button>
+                  {isAddMultiple && (
+                    <button 
+                      type="button"
+                      onClick={handleAddToList}
+                      disabled={!text.trim()}
+                      className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-sm disabled:opacity-50 w-full sm:w-auto"
+                    >
+                      <Plus className="w-4 h-4" /> Add Next
+                    </button>
+                  )}
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-200 flex items-center justify-center gap-2 text-sm w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="w-4 h-4" /> {isSubmitting ? 'Saving...' : (isAddMultiple && tempQuestions.length > 0 ? `Save All (${text.trim() ? tempQuestions.length + 1 : tempQuestions.length})` : 'Save Question')}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

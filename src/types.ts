@@ -10,6 +10,7 @@ export interface Question {
   status: 'active' | 'past' | 'upcoming';
   options?: string[];
   endTime?: string;
+  startTime?: string;
   isEvaluated?: boolean;
   correctAnswer?: string;
   isManualInput?: boolean;
@@ -39,6 +40,7 @@ export interface Answer {
   participantId: string;
   answer: string;
   timestamp: string;
+  pointsAwarded?: number;
 }
 
 export interface AppSettings {

@@ -350,12 +350,10 @@ export default function App() {
             <div className="hidden sm:block relative">
               <button 
                 onClick={() => setIsActivityMenuOpen(!isActivityMenuOpen)}
-                className={`flex items-center justify-center w-[38px] h-[38px] rounded-xl border transition-all ${isActivityMenuOpen ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-400' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60'}`}
+                className={`flex items-center justify-center w-[38px] h-[38px] rounded-xl border transition-all ${isActivityMenuOpen ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-400' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60 text-slate-400 hover:text-slate-300'}`}
                 title="Recent Activity"
               >
-                <div className="bg-indigo-500/20 p-1.5 rounded-lg border border-indigo-400/30">
-                  <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                </div>
+                <Clock className="w-5 h-5" />
               </button>
 
               {isActivityMenuOpen && (
@@ -422,17 +420,15 @@ export default function App() {
 
               <div className="h-6 w-px bg-slate-700/50 hidden lg:block"></div>
               
-              <div className="hidden lg:flex items-center gap-3 relative">
+              <div className="hidden lg:flex items-center gap-3 h-full">
                 <button 
                   onClick={() => setIsWaModalOpen(true)}
-                  className="flex items-center justify-center w-[38px] h-[38px] rounded-xl border bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60 transition-all"
+                  className="flex items-center justify-center w-[38px] h-[38px] rounded-xl border bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60 text-slate-400 hover:text-slate-300 transition-all"
                   title="WhatsApp Announce"
                 >
-                  <div className="bg-emerald-500/20 p-1.5 rounded-lg border border-emerald-400/30">
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                  </div>
+                  <MessageSquare className="w-5 h-5" />
                 </button>
-                <div className="flex items-center gap-2.5 bg-slate-800/40 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/50 shadow-sm transition-all hover:bg-slate-800/60 text-white">
+                <div className="flex items-center h-[38px] gap-2.5 bg-slate-800/40 backdrop-blur-md px-3 rounded-xl border border-slate-700/50 shadow-sm transition-all hover:bg-slate-800/60 text-white">
                   <div className="bg-blue-500/20 p-1.5 rounded-lg border border-blue-400/30">
                     <Users className="w-3.5 h-3.5 text-blue-400" />
                   </div>
@@ -544,6 +540,8 @@ export default function App() {
                     updateParticipantScore={store.updateParticipantScore}
                     updateQuestion={store.updateQuestion}
                     addAnswer={store.addAnswer}
+                    updateAnswerPoints={store.updateAnswerPoints}
+                    recalculateAllScores={store.recalculateAllScores}
                   />
                 )}
                 {activeTab === 'diagnostics' && (

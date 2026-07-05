@@ -46,8 +46,8 @@ export function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-none overflow-hidden animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Upload className="w-5 h-5 text-indigo-500" /> Import Participants
