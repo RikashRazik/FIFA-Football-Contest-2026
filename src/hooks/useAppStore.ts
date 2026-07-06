@@ -410,15 +410,27 @@ export function useAppStore() {
         'multiple_choice': 'bonusPoints'
       };
 
-      // Reset scores in memory for a clean sum
-      const scoreMap: Record<string, {
+      // Identify which days actually have evaluated daily questions
+      const evaluatedDailyDays = new Set<number>();
+      questions.forEach(q => {
+        const category = categoryMap[q.type] || 'dailyPoints';
+        if (q.isEvaluated && category === 'dailyPoints') {
+          evaluatedDailyDays.add(getDayIndex(q.date));
+        }
+      });
+
+      const hasEvaluatedBonus = questions.some(q => q.isEvaluated && (categoryMap[q.type] || 'dailyPoints') === 'bonusPoints');
+      const hasEvaluatedBumper = questions.some(q => q.isEvaluated && (categoryMap[q.type] || 'dailyPoints') === 'bumperPoints');
+
+      // Reset scores in memory for a clean sum of evaluated answers
+      const evaluatedScoresMap: Record<string, {
         dailyScores: Record<number, number>;
         bonusPoints: number;
         bumperPoints: number;
       }> = {};
 
       participants.forEach(p => {
-        scoreMap[p.id] = {
+        evaluatedScoresMap[p.id] = {
           dailyScores: {},
           bonusPoints: 0,
           bumperPoints: 0
@@ -434,7 +446,7 @@ export function useAppStore() {
         const category = categoryMap[q.type] || 'dailyPoints';
         const dayIdx = getDayIndex(q.date);
 
-        const scoresObj = scoreMap[ans.participantId];
+        const scoresObj = evaluatedScoresMap[ans.participantId];
         if (scoresObj) {
           if (category === 'dailyPoints') {
             scoresObj.dailyScores[dayIdx] = (scoresObj.dailyScores[dayIdx] || 0) + pts;
@@ -449,25 +461,40 @@ export function useAppStore() {
       // Write updates to Firestore in a batch
       const batch = writeBatch(db);
       participants.forEach(p => {
-        const scores = scoreMap[p.id];
-        if (scores) {
-          const maxDayIdx = Object.keys(scores.dailyScores).length > 0 
-            ? Math.max(...Object.keys(scores.dailyScores).map(Number)) 
+        const evalScores = evaluatedScoresMap[p.id];
+        if (evalScores) {
+          // Merge evaluated scores with existing manual/imported scores
+          const existingScores = p.dailyScores || [];
+          
+          // Determine the maximum day index between existing scores and evaluated scores
+          const maxExistingDayIdx = existingScores.length - 1;
+          const maxEvalDayIdx = Object.keys(evalScores.dailyScores).length > 0 
+            ? Math.max(...Object.keys(evalScores.dailyScores).map(Number)) 
             : -1;
+          
+          const maxDayIdx = Math.max(maxExistingDayIdx, maxEvalDayIdx);
           
           const dailyScoresArr: number[] = [];
           for (let i = 0; i <= maxDayIdx; i++) {
-            dailyScoresArr.push(scores.dailyScores[i] || 0);
+            if (evaluatedDailyDays.has(i)) {
+              // This day has evaluated daily questions, use the sum of answers
+              dailyScoresArr.push(evalScores.dailyScores[i] || 0);
+            } else {
+              // This day does not have evaluated daily questions, preserve existing score
+              dailyScoresArr.push(existingScores[i] || 0);
+            }
           }
 
           const dailyPoints = dailyScoresArr.reduce((sum, s) => sum + s, 0);
+          const bonusPoints = hasEvaluatedBonus ? evalScores.bonusPoints : (p.bonusPoints || 0);
+          const bumperPoints = hasEvaluatedBumper ? evalScores.bumperPoints : (p.bumperPoints || 0);
 
           const docRef = doc(db, 'participants', p.id);
           batch.update(docRef, {
             dailyScores: dailyScoresArr,
             dailyPoints: dailyPoints,
-            bonusPoints: scores.bonusPoints,
-            bumperPoints: scores.bumperPoints
+            bonusPoints: bonusPoints,
+            bumperPoints: bumperPoints
           });
         }
       });
