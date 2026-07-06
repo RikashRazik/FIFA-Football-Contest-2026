@@ -545,7 +545,7 @@ export default function App() {
                   />
                 )}
                 {activeTab === 'diagnostics' && (
-                  <Diagnostics />
+                  <Diagnostics recalculateAllScores={store.recalculateAllScores} />
                 )}
               </ErrorBoundary>
             </motion.div>

@@ -227,8 +227,17 @@ export function useAppStore() {
           newDailyScores[dayIndex] = Math.max(0, (newDailyScores[dayIndex] || 0) + delta);
           updates.dailyScores = newDailyScores;
           updates.dailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
+
+          const manualDailyScores = { ...(participant.manualDailyScores || {}) };
+          manualDailyScores[dayIndex.toString()] = true;
+          updates.manualDailyScores = manualDailyScores;
         } else {
           updates[category] = Math.max(0, (participant[category] || 0) + delta);
+          if (category === 'bonusPoints') {
+            updates.manualBonusPoints = true;
+          } else if (category === 'bumperPoints') {
+            updates.manualBumperPoints = true;
+          }
         }
         
         transaction.update(docRef, updates);
@@ -249,7 +258,8 @@ export function useAppStore() {
         dailyPoints: 0,
         bonusPoints: 0,
         bumperPoints: 0,
-        dailyScores: []
+        dailyScores: [],
+        manualDailyScores: {}
       };
       await setDoc(doc(db, 'participants', id), newParticipant);
       return uniqueId;
@@ -281,20 +291,47 @@ export function useAppStore() {
         }
         newDailyScores[dayIndex] = Math.max(0, score);
         const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
-        transaction.update(docRef, { dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+
+        const manualDailyScores = { ...(participant.manualDailyScores || {}) };
+        manualDailyScores[dayIndex.toString()] = true;
+
+        transaction.update(docRef, { 
+          dailyScores: newDailyScores, 
+          dailyPoints: newDailyPoints,
+          manualDailyScores
+        });
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
     }
   };
 
-  const batchUpdateParticipantScores = async (updates: { id: string, dailyScores: number[] }[]) => {
+  const batchUpdateParticipantScores = async (updates: { id: string, scoresMap: Record<number, number> }[]) => {
     try {
       const batch = writeBatch(db);
       for (const update of updates) {
         const docRef = doc(db, 'participants', update.id);
-        const newDailyPoints = update.dailyScores.reduce((sum, s) => sum + s, 0);
-        batch.update(docRef, { dailyScores: update.dailyScores, dailyPoints: newDailyPoints });
+        const p = participants.find(part => part.id === update.id);
+        
+        const existingScores = [...(p?.dailyScores || [])];
+        const manualDailyScores = { ...(p?.manualDailyScores || {}) };
+        
+        Object.entries(update.scoresMap).forEach(([dayIdxStr, score]) => {
+          const dayIdx = parseInt(dayIdxStr, 10);
+          while (existingScores.length <= dayIdx) {
+            existingScores.push(0);
+          }
+          existingScores[dayIdx] = score;
+          manualDailyScores[dayIdx.toString()] = true;
+        });
+
+        const newDailyPoints = existingScores.reduce((sum, s) => sum + s, 0);
+
+        batch.update(docRef, { 
+          dailyScores: existingScores, 
+          dailyPoints: newDailyPoints,
+          manualDailyScores
+        });
       }
       await batch.commit();
       toast.success(`Successfully batch updated ${updates.length} participants.`);
@@ -316,7 +353,24 @@ export function useAppStore() {
           newDailyScores.splice(dayIndex, 1);
         }
         const newDailyPoints = newDailyScores.reduce((sum, s) => sum + s, 0);
-        transaction.update(docRef, { dailyScores: newDailyScores, dailyPoints: newDailyPoints });
+
+        const manualDailyScores: Record<string, boolean> = {};
+        if (participant.manualDailyScores) {
+          Object.entries(participant.manualDailyScores).forEach(([key, value]) => {
+            const idx = parseInt(key, 10);
+            if (idx < dayIndex) {
+              manualDailyScores[key] = value;
+            } else if (idx > dayIndex) {
+              manualDailyScores[(idx - 1).toString()] = value;
+            }
+          });
+        }
+
+        transaction.update(docRef, { 
+          dailyScores: newDailyScores, 
+          dailyPoints: newDailyPoints,
+          manualDailyScores
+        });
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'participants');
@@ -394,7 +448,7 @@ export function useAppStore() {
     }
   };
 
-  const recalculateAllScores = async () => {
+  const recalculateAllScores = async (silent = false) => {
     try {
       const getDayIndex = (dateString: string) => {
         const start = new Date('2026-06-11T00:00:00Z');
@@ -410,17 +464,27 @@ export function useAppStore() {
         'multiple_choice': 'bonusPoints'
       };
 
+      // Fetch fresh, authoritative ground-truth data directly from firestore to prevent any race conditions or stale React states
+      const [participantsSnap, questionsSnap, answersSnap] = await Promise.all([
+        getDocs(collection(db, 'participants')),
+        getDocs(collection(db, 'questions')),
+        getDocs(collection(db, 'answers'))
+      ]);
+      const freshParticipants = participantsSnap.docs.map(d => ({ ...d.data(), id: d.id } as Participant));
+      const freshQuestions = questionsSnap.docs.map(d => ({ ...d.data(), id: d.id } as Question));
+      const freshAnswers = answersSnap.docs.map(d => ({ ...d.data(), id: d.id } as Answer));
+
       // Identify which days actually have evaluated daily questions
       const evaluatedDailyDays = new Set<number>();
-      questions.forEach(q => {
+      freshQuestions.forEach(q => {
         const category = categoryMap[q.type] || 'dailyPoints';
         if (q.isEvaluated && category === 'dailyPoints') {
           evaluatedDailyDays.add(getDayIndex(q.date));
         }
       });
 
-      const hasEvaluatedBonus = questions.some(q => q.isEvaluated && (categoryMap[q.type] || 'dailyPoints') === 'bonusPoints');
-      const hasEvaluatedBumper = questions.some(q => q.isEvaluated && (categoryMap[q.type] || 'dailyPoints') === 'bumperPoints');
+      const hasEvaluatedBonus = freshQuestions.some(q => q.isEvaluated && (categoryMap[q.type] || 'dailyPoints') === 'bonusPoints');
+      const hasEvaluatedBumper = freshQuestions.some(q => q.isEvaluated && (categoryMap[q.type] || 'dailyPoints') === 'bumperPoints');
 
       // Reset scores in memory for a clean sum of evaluated answers
       const evaluatedScoresMap: Record<string, {
@@ -429,7 +493,7 @@ export function useAppStore() {
         bumperPoints: number;
       }> = {};
 
-      participants.forEach(p => {
+      freshParticipants.forEach(p => {
         evaluatedScoresMap[p.id] = {
           dailyScores: {},
           bonusPoints: 0,
@@ -437,9 +501,14 @@ export function useAppStore() {
         };
       });
 
+      // Track which participant has actual answer records for daily/bonus/bumper questions
+      const participantDailyAnswerDays = new Map<string, Set<number>>();
+      const participantHasBonusAnswer = new Set<string>();
+      const participantHasBumperAnswer = new Set<string>();
+
       // Sum pointsAwarded from all answers
-      answers.forEach(ans => {
-        const q = questions.find(question => question.id === ans.questionId);
+      freshAnswers.forEach(ans => {
+        const q = freshQuestions.find(question => question.id === ans.questionId);
         if (!q) return;
 
         const pts = ans.pointsAwarded ?? 0;
@@ -450,21 +519,29 @@ export function useAppStore() {
         if (scoresObj) {
           if (category === 'dailyPoints') {
             scoresObj.dailyScores[dayIdx] = (scoresObj.dailyScores[dayIdx] || 0) + pts;
+            
+            if (!participantDailyAnswerDays.has(ans.participantId)) {
+              participantDailyAnswerDays.set(ans.participantId, new Set<number>());
+            }
+            participantDailyAnswerDays.get(ans.participantId)!.add(dayIdx);
           } else if (category === 'bonusPoints') {
             scoresObj.bonusPoints += pts;
+            participantHasBonusAnswer.add(ans.participantId);
           } else if (category === 'bumperPoints') {
             scoresObj.bumperPoints += pts;
+            participantHasBumperAnswer.add(ans.participantId);
           }
         }
       });
 
       // Write updates to Firestore in a batch
       const batch = writeBatch(db);
-      participants.forEach(p => {
+      freshParticipants.forEach(p => {
         const evalScores = evaluatedScoresMap[p.id];
         if (evalScores) {
           // Merge evaluated scores with existing manual/imported scores
           const existingScores = p.dailyScores || [];
+          const manualDailyScores = { ...(p.manualDailyScores || {}) };
           
           // Determine the maximum day index between existing scores and evaluated scores
           const maxExistingDayIdx = existingScores.length - 1;
@@ -473,34 +550,81 @@ export function useAppStore() {
             : -1;
           
           const maxDayIdx = Math.max(maxExistingDayIdx, maxEvalDayIdx);
+
+          // Retroactive automatic manual scoring lock/detection:
+          // If a user has a score > 0 but NO answer submitted for that day in the database,
+          // then this score MUST have been imported or manually entered. We must flag it as manual!
+          for (let i = 0; i <= maxDayIdx; i++) {
+            const hasUserAnswer = participantDailyAnswerDays.get(p.id)?.has(i);
+            const scoreInArray = existingScores[i] || 0;
+            if (scoreInArray > 0 && !hasUserAnswer) {
+              manualDailyScores[i.toString()] = true;
+            }
+          }
+
+          let manualBonusPoints = p.manualBonusPoints || false;
+          if ((p.bonusPoints || 0) > 0 && !participantHasBonusAnswer.has(p.id)) {
+            manualBonusPoints = true;
+          }
+
+          let manualBumperPoints = p.manualBumperPoints || false;
+          if ((p.bumperPoints || 0) > 0 && !participantHasBumperAnswer.has(p.id)) {
+            manualBumperPoints = true;
+          }
           
           const dailyScoresArr: number[] = [];
           for (let i = 0; i <= maxDayIdx; i++) {
-            if (evaluatedDailyDays.has(i)) {
-              // This day has evaluated daily questions, use the sum of answers
-              dailyScoresArr.push(evalScores.dailyScores[i] || 0);
-            } else {
-              // This day does not have evaluated daily questions, preserve existing score
+            // Check if this day is flagged as manually overridden/imported
+            const isManuallySet = manualDailyScores[i.toString()] === true;
+            
+            if (isManuallySet) {
+              // This score was manually uploaded or edited! PRESERVE IT EXACTLY.
               dailyScoresArr.push(existingScores[i] || 0);
+            } else {
+              // Not manually set. ONLY use the evaluated score if the day has evaluated questions AND the participant actually has submitted answers for that day.
+              // This prevents overwriting manually entered or imported scores when no answer is present in the database.
+              const hasUserAnswer = participantDailyAnswerDays.get(p.id)?.has(i);
+              if (evaluatedDailyDays.has(i) && hasUserAnswer) {
+                dailyScoresArr.push(evalScores.dailyScores[i] || 0);
+              } else {
+                dailyScoresArr.push(existingScores[i] || 0);
+              }
             }
           }
 
           const dailyPoints = dailyScoresArr.reduce((sum, s) => sum + s, 0);
-          const bonusPoints = hasEvaluatedBonus ? evalScores.bonusPoints : (p.bonusPoints || 0);
-          const bumperPoints = hasEvaluatedBumper ? evalScores.bumperPoints : (p.bumperPoints || 0);
+          
+          // ONLY update bonus or bumper points if they have evaluated bonus/bumper questions AND the user actually has an answer for them,
+          // AND they are NOT marked as manually overridden!
+          const bonusPoints = manualBonusPoints 
+            ? (p.bonusPoints || 0) 
+            : ((hasEvaluatedBonus && participantHasBonusAnswer.has(p.id)) 
+              ? evalScores.bonusPoints 
+              : (p.bonusPoints || 0));
+              
+          const bumperPoints = manualBumperPoints 
+            ? (p.bumperPoints || 0) 
+            : ((hasEvaluatedBumper && participantHasBumperAnswer.has(p.id)) 
+              ? evalScores.bumperPoints 
+              : (p.bumperPoints || 0));
 
           const docRef = doc(db, 'participants', p.id);
           batch.update(docRef, {
             dailyScores: dailyScoresArr,
             dailyPoints: dailyPoints,
             bonusPoints: bonusPoints,
-            bumperPoints: bumperPoints
+            bumperPoints: bumperPoints,
+            manualDailyScores,
+            manualBonusPoints,
+            manualBumperPoints
           });
         }
       });
 
       await batch.commit();
-      toast.success('Successfully synchronized and recalculated all participant scores!');
+      if (!silent) {
+        toast.success('Successfully synchronized and recalculated all participant scores!');
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'recalculate');
     }
@@ -513,6 +637,7 @@ export function useAppStore() {
         batch.delete(doc(db, 'answers', id));
       });
       await batch.commit();
+      await recalculateAllScores(true);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'answers');
     }

@@ -17,7 +17,8 @@ service cloud.firestore {
     // Answers collection - secure with deterministic ID validation
     match /answers/{answerId} {
       allow read: if true;
-      allow write: if answerId == request.resource.data.participantId + '_' + request.resource.data.questionId;
+      allow create, update: if answerId == request.resource.data.participantId + '_' + request.resource.data.questionId;
+      allow delete: if true;
     }
     
     // Participants collection - protect leaderboard scores against tampering

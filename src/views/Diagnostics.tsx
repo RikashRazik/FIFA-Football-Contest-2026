@@ -4,20 +4,22 @@ import { db } from '../lib/firebase';
 import { Participant } from '../types';
 import { Database, Server, HardDrive, RefreshCw, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useAppStore } from '../hooks/useAppStore';
 
-export function Diagnostics() {
+interface DiagnosticsProps {
+  recalculateAllScores: () => Promise<void>;
+}
+
+export function Diagnostics({ recalculateAllScores }: DiagnosticsProps) {
   const [serverData, setServerData] = useState<Participant[] | null>(null);
   const [cacheData, setCacheData] = useState<Participant[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
-  const store = useAppStore();
 
   const handleRecalculate = async () => {
     if (recalculating) return;
     setRecalculating(true);
     try {
-      await store.recalculateAllScores();
+      await recalculateAllScores();
       await fetchData();
     } catch (e: any) {
       toast.error(`Recalculation error: ${e.message}`);
@@ -120,6 +122,9 @@ export function Diagnostics() {
                 ))}
                 {!serverData && (
                   <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-400">Loading server data...</td></tr>
+                )}
+                {serverData?.length === 0 && (
+                  <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-400">No participants found on the live server.</td></tr>
                 )}
               </tbody>
             </table>

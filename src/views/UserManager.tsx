@@ -12,7 +12,7 @@ interface UserManagerProps {
   addParticipant: (name: string, uniqueId?: string) => Promise<string | undefined> | void;
   updateParticipantName: (id: string, name: string) => void;
   updateParticipantDailyScore: (id: string, dayIndex: number, score: number) => void;
-  batchUpdateParticipantScores: (updates: { id: string; dailyScores: number[] }[]) => void;
+  batchUpdateParticipantScores: (updates: { id: string; scoresMap: Record<number, number> }[]) => void;
   removeParticipantDailyScore: (id: string, dayIndex: number) => void;
   deleteParticipant: (id: string) => void;
   onParticipantClick?: (participant: Participant) => void;

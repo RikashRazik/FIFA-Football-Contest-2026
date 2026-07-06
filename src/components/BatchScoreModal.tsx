@@ -8,7 +8,7 @@ interface BatchScoreModalProps {
   isOpen: boolean;
   onClose: () => void;
   participants: Participant[];
-  onBatchUpdate: (updates: { id: string; dailyScores: number[] }[]) => void;
+  onBatchUpdate: (updates: { id: string; scoresMap: Record<number, number> }[]) => void;
 }
 
 export function BatchScoreModal({ isOpen, onClose, participants, onBatchUpdate }: BatchScoreModalProps) {
@@ -24,7 +24,7 @@ export function BatchScoreModal({ isOpen, onClose, participants, onBatchUpdate }
       skipEmptyLines: true,
       complete: (results) => {
         const data = results.data as any[];
-        const updates: { id: string; dailyScores: number[] }[] = [];
+        const updates: { id: string; scoresMap: Record<number, number> }[] = [];
         let notFound = 0;
 
         for (const row of data) {
@@ -46,28 +46,25 @@ export function BatchScoreModal({ isOpen, onClose, participants, onBatchUpdate }
             continue;
           }
 
-          const dailyScores: number[] = [];
+          const scoresMap: Record<number, number> = {};
           
-          // Loop through all properties looking for day data
-          // Expecting column names like "Day 1", "Day 2", or just "1", "2"
-          let dayIndex = 1;
-          while (true) {
-            const val1 = row[`Day ${dayIndex}`];
-            const val2 = row[`day ${dayIndex}`];
-            const val3 = row[`${dayIndex}`];
-            
-            const rawVal = val1 !== undefined ? val1 : (val2 !== undefined ? val2 : val3);
-            if (rawVal === undefined) {
-              break; // No more days found sequentially
+          // Loop through all keys to find day scores
+          Object.keys(row).forEach(key => {
+            const trimmedKey = key.trim();
+            const matchNum = trimmedKey.match(/^(?:[Dd]ay\s*(\d+)|(\d+))$/);
+            if (matchNum) {
+              const dayNum = parseInt(matchNum[1] || matchNum[2], 10);
+              if (dayNum > 0) {
+                const score = parseInt(row[key], 10);
+                if (!isNaN(score)) {
+                  scoresMap[dayNum - 1] = score; // 0-indexed day index
+                }
+              }
             }
-            
-            const score = parseInt(rawVal, 10);
-            dailyScores.push(isNaN(score) ? 0 : score);
-            dayIndex++;
-          }
+          });
           
-          if (dailyScores.length > 0) {
-            updates.push({ id: participant.id, dailyScores });
+          if (Object.keys(scoresMap).length > 0) {
+            updates.push({ id: participant.id, scoresMap });
           }
         }
 

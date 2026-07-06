@@ -32,6 +32,9 @@ export interface Participant {
   bonusPoints: number;
   bumperPoints: number;
   dailyScores?: number[];
+  manualDailyScores?: Record<string, boolean>;
+  manualBonusPoints?: boolean;
+  manualBumperPoints?: boolean;
 }
 
 export interface Answer {
