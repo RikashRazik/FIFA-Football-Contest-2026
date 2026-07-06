@@ -281,7 +281,7 @@ export default function App() {
     return <LoginView onLogin={handleLogin} />;
   }
 
-  const evaluateCount = store.questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !q.isEvaluated && isQuestionTimedOut(q)).length;
+  const evaluateCount = store.questions.filter(q => getDynamicQuestionStatus(q) === 'past' && !q.isEvaluated).length;
   const activeCount = store.questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !isQuestionTimedOut(q)).length;
 
   const recentActivities = [

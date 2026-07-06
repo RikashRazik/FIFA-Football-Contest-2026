@@ -16,7 +16,7 @@ interface EvaluateAnswersProps {
 }
 
 export function EvaluateAnswers({ questions, participants, answers, updateParticipantScore, updateQuestion, addAnswer, updateAnswerPoints, recalculateAllScores }: EvaluateAnswersProps) {
-  const evaluableQuestions = questions.filter(q => getDynamicQuestionStatus(q) === 'active' && !q.isEvaluated && isQuestionTimedOut(q));
+  const evaluableQuestions = questions.filter(q => getDynamicQuestionStatus(q) === 'past' && !q.isEvaluated);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [selectedMultipleAnswers, setSelectedMultipleAnswers] = useState<string[]>([]);
