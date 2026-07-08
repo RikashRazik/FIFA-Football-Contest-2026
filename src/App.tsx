@@ -404,19 +404,13 @@ export default function App() {
           <div className="flex items-center gap-3 md:gap-4 shrink-0 relative">
             {/* Desktop Engaging Stats Area */}
             <div className="hidden md:flex items-center gap-4 mr-2">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50 text-xs font-medium text-slate-300 shadow-inner backdrop-blur-sm">
-                <span className="relative flex h-2 w-2 mr-1">
-                  {isOnline ? (
-                    <>
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-                    </>
-                  ) : (
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-400"></span>
-                  )}
-                </span>
-                {!isOnline ? "Offline" : isSlowConnection ? "Slow Connection" : store.isSyncing ? "Saving..." : "System Live"}
-              </div>
+              <button 
+                onClick={() => setActiveTab('users')}
+                className={`flex items-center justify-center w-[38px] h-[38px] rounded-xl border transition-all ${activeTab === 'users' ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-400' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60 text-slate-400 hover:text-slate-300'}`}
+                title="User Management"
+              >
+                <Users className="w-5 h-5" />
+              </button>
 
               <div className="h-6 w-px bg-slate-700/50 hidden lg:block"></div>
               

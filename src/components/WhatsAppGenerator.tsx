@@ -21,8 +21,6 @@ export function WhatsAppGenerator({ questions, participants, isOpen, onClose }: 
     if (activeQuestions.length === 0) return 'No active questions right now.';
 
     let text = '📢 *FIFA 2026 Admin - Active Questions* 📢\n\n';
-    const origin = 'https://ais-dev-nc43ixkcuf5lpjgjziks5x-524600942639.europe-west1.run.app';
-    const pathname = window.location.pathname;
 
     activeQuestions.forEach((q, i) => {
       text += `*Q${i + 1}.* ${q.text}\n`;
@@ -38,26 +36,34 @@ export function WhatsAppGenerator({ questions, participants, isOpen, onClose }: 
       text += '\n';
     });
     
-    text += `👉 *Answer here:* ${origin}${pathname}?active=true\n`;
+    text += `👉 *Answer here:* https://fifa-worldcupcontest-2026.netlify.app/?active=true\n`;
     
     return text;
   };
 
   const getLeaderboardText = () => {
-    const participantsWithTotals = participants.map(p => ({
+    const sorted = [...participants].map(p => ({
       ...p,
       total: p.dailyPoints + p.bonusPoints + p.bumperPoints
     })).sort((a, b) => b.total - a.total);
 
-    const top10 = participantsWithTotals.slice(0, 10);
-
-    let text = '🏆 *FIFA 2026 Admin - Leaderboard* 🏆\n\n';
-    top10.forEach((p, i) => {
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅';
-      text += `${medal} ${i + 1}. ${p.name} - ${p.total} pts\n`;
+    let currentRank = 1;
+    const ranked = sorted.map((p, index) => {
+      if (index > 0 && p.total < sorted[index - 1].total) {
+        currentRank++;
+      }
+      return { ...p, rank: currentRank };
     });
 
-    text += `\n👉 *View full leaderboard:* https://ais-dev-nc43ixkcuf5lpjgjziks5x-524600942639.europe-west1.run.app/?view=leaderboard\n`;
+    const top10 = ranked.slice(0, 10);
+
+    let text = '🏆 *FIFA 2026 Admin - Leaderboard* 🏆\n\n';
+    top10.forEach((p) => {
+      const medal = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : '🏅';
+      text += `${medal} ${p.rank}. ${p.name} - ${p.total} pts\n`;
+    });
+
+    text += `\n👉 *View full leaderboard:* https://fifa-worldcupcontest-2026.netlify.app/?view=leaderboard\n`;
 
     return text;
   };
